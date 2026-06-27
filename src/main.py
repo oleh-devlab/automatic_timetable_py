@@ -18,7 +18,7 @@ def main():
     time_blocks = parse_time_blocks(time_blocks_raw, now)
 
     start_time_creating = time.perf_counter()
-    model, tasks = create_model(user_tasks, time_blocks)
+    model = create_model(user_tasks, time_blocks)
     end_time_creating = time.perf_counter()
 
     print("Time taken to create the model: {:.6f} seconds".format(end_time_creating - start_time_creating))
@@ -32,12 +32,27 @@ def main():
 
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
         print(f"Status: {'OPTIMAL' if status == cp_model.OPTIMAL else 'FEASIBLE'}")
-        for i in range(len(user_tasks)):
-            start_val = solver.value(tasks["start"][i])
-            end_val = solver.value(tasks["end"][i])
-            start_time = minutes_to_time(start_val, now)
-            end_time = minutes_to_time(end_val, now)
-            print(f"Task: {user_tasks[i].name}, Start: {start_time}, End: {end_time}")
+
+        scheduled = []
+        skipped = []
+        for task in user_tasks:
+            if solver.value(task.presence_var):
+                start_val = solver.value(task.start_var)
+                end_val = solver.value(task.end_var)
+                start_time = minutes_to_time(start_val, now)
+                end_time = minutes_to_time(end_val, now)
+                scheduled.append((task, start_time, end_time))
+            else:
+                skipped.append(task)
+
+        print(f"\nScheduled tasks ({len(scheduled)}/{len(user_tasks)}):")
+        for task, start_time, end_time in scheduled:
+            print(f"  Task: {task.name}, Start: {start_time}, End: {end_time}")
+
+        if skipped:
+            print(f"\nSkipped tasks ({len(skipped)}):")
+            for task in skipped:
+                print(f"  Task: {task.name} ({task.duration} min) — could not fit")
     else:
         print("No solution found.")
 

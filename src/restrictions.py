@@ -58,7 +58,6 @@ def generate_blocked_intervals(time_blocks, horizon):
 
 def create_model(user_tasks, time_blocks, max_horizon_days=14):
     model = cp_model.CpModel()
-    tasks = {"var": [], "start": [], "end": []}
 
     # Data preparation and calculation of constraints
     horizon = calculate_horizon(user_tasks, max_horizon_days)
@@ -70,16 +69,20 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14):
         fixed_interval = model.new_fixed_size_interval_var(start, end - start, f'blocked_{i+1}')
         time_blocks_vars.append(fixed_interval)
 
-    # Create variables for each user task
+    # Create variables for each user task (optional — solver maximizes how many are scheduled)
     for i, task in enumerate(user_tasks):
-        start_var = model.new_int_var(0, horizon, f'start_{i}')
-        end_var = model.new_int_var(0, horizon, f'end_{i}')
-        
-        tasks["start"].append(start_var)
-        tasks["end"].append(end_var)
-        tasks["var"].append(model.new_interval_var(start_var, task.duration, end_var, f'task_{task.name}_interval'))
+        task.start_var = model.new_int_var(0, horizon, f'start_{i}')
+        task.end_var = model.new_int_var(0, horizon, f'end_{i}')
+        task.presence_var = model.new_bool_var(f'presence_{i}')
+        task.interval_var = model.new_optional_interval_var(
+            task.start_var, task.duration, task.end_var,
+            task.presence_var, f'task_{task.name}_interval'
+        )
 
     # Tasks and blocked periods cannot overlap
-    model.add_no_overlap(tasks["var"] + time_blocks_vars)
+    model.add_no_overlap([task.interval_var for task in user_tasks] + time_blocks_vars)
 
-    return model, tasks
+    # Maximize the number of scheduled tasks
+    model.maximize(sum(task.presence_var for task in user_tasks))
+
+    return model
