@@ -20,8 +20,8 @@ def merge_time_blocks(time_blocks):
 
 
 def minutes_to_time(minutes_from_now, now):
-    """Convert minutes from `now` back to a 'HH:MM' time string."""
-    return (now + timedelta(minutes=minutes_from_now)).strftime('%H:%M')
+    """Convert minutes from `now` back to a 'YYYY-MM-DD HH:MM' date and time string."""
+    return (now + timedelta(minutes=minutes_from_now)).strftime('%Y-%m-%d %H:%M')
 
 
 def parse_time_blocks(time_blocks_raw, now):

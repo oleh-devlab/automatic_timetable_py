@@ -39,22 +39,26 @@ def main():
             if solver.value(task.presence_var):
                 start_val = solver.value(task.start_var)
                 end_val = solver.value(task.end_var)
-                start_time = minutes_to_time(start_val, now)
-                end_time = minutes_to_time(end_val, now)
-                scheduled.append((task, start_time, end_time))
+                
+                scheduled.append((task, start_val, end_val))
             else:
                 skipped.append(task)
 
+        scheduled.sort(key=lambda x: x[1])
+
         print(f"\nScheduled tasks ({len(scheduled)}/{len(user_tasks)}):")
-        for task, start_time, end_time in scheduled:
-            print(f"  Task: {task.name}, Start: {start_time}, End: {end_time}")
+        for task, start_val, end_val in scheduled:
+            start_time = minutes_to_time(start_val, now)
+            end_time = minutes_to_time(end_val, now)
+             
+            print(f"--- {task.name}:\nStart: {start_time}\nEnd: {end_time}")
 
         if skipped:
             print(f"\nSkipped tasks ({len(skipped)}):")
             for task in skipped:
                 print(f"  Task: {task.name} ({task.duration} min) — could not fit")
     else:
-        print("No solution found.")
+        print(f"No solution found. {status}")
 
 if __name__ == "__main__":
     main()
