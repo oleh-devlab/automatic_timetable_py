@@ -39,26 +39,32 @@ def main():
             if solver.value(task.presence_var):
                 start_val = solver.value(task.start_var)
                 end_val = solver.value(task.end_var)
-                
-                scheduled.append((task, start_val, end_val))
+                start_time = minutes_to_time(start_val, now)
+                end_time = minutes_to_time(end_val, now)
+                scheduled.append((task, start_time, end_time))
             else:
                 skipped.append(task)
 
-        scheduled.sort(key=lambda x: x[1])
-
         print(f"\nScheduled tasks ({len(scheduled)}/{len(user_tasks)}):")
-        for task, start_val, end_val in scheduled:
-            start_time = minutes_to_time(start_val, now)
-            end_time = minutes_to_time(end_val, now)
-             
-            print(f"--- {task.name}:\nStart: {start_time}\nEnd: {end_time}")
+        for task, start_time, end_time in scheduled:
+            if task.chunks:
+                present_chunks = [c for c in task.chunks if solver.value(c['presence_var'])]
+                print(f"  Task: {task.name} (chunked into {len(present_chunks)} parts)")
+                for c, chunk in enumerate(task.chunks):
+                    if solver.value(chunk['presence_var']):
+                        cs = minutes_to_time(solver.value(chunk['start_var']), now)
+                        ce = minutes_to_time(solver.value(chunk['end_var']), now)
+                        csize = solver.value(chunk['size_var'])
+                        print(f"    Chunk {c+1} ({csize} min): {cs} — {ce}")
+            else:
+                print(f"  Task: {task.name}, Start: {start_time}, End: {end_time}")
 
         if skipped:
             print(f"\nSkipped tasks ({len(skipped)}):")
             for task in skipped:
                 print(f"  Task: {task.name} ({task.duration} min) — could not fit")
     else:
-        print(f"No solution found. {status}")
+        print("No solution found.")
 
 if __name__ == "__main__":
     main()

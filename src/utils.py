@@ -20,7 +20,7 @@ def merge_time_blocks(time_blocks):
 
 
 def minutes_to_time(minutes_from_now, now):
-    """Convert minutes from `now` back to a 'YYYY-MM-DD HH:MM' date and time string."""
+    """Convert minutes from `now` to a 'YYYY-MM-DD HH:MM' datetime string."""
     return (now + timedelta(minutes=minutes_from_now)).strftime('%Y-%m-%d %H:%M')
 
 
