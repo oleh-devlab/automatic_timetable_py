@@ -19,6 +19,14 @@ def main():
     # Convert HH:MM strings to minutes from now
     time_blocks = parse_time_blocks(time_blocks_raw, now)
 
+    # Convert deadline strings to minutes from now
+    for task in user_tasks:
+        if task.deadline is not None:
+            dt_deadline = datetime.strptime(task.deadline, "%Y-%m-%d %H:%M")
+            task.deadline_min = int((dt_deadline - now).total_seconds() / 60)
+        else:
+            task.deadline_min = None
+
     print("Time taken to import OR-Tools.SAT: {:.6f} seconds".format(end_import_time - start_import_time))
 
     start_time_creating = time.perf_counter()
@@ -66,7 +74,8 @@ def main():
         if skipped:
             print(f"\nSkipped tasks ({len(skipped)}):")
             for task in skipped:
-                print(f"  Task: {task.name} ({task.duration} min) — could not fit")
+                deadline_info = f", deadline: {task.deadline}" if task.deadline else ""
+                print(f"  Task: {task.name} ({task.duration} min{deadline_info}) — could not fit")
     else:
         print("No solution found.")
 

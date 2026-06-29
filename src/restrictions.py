@@ -18,11 +18,11 @@ def calculate_horizon(user_tasks, max_horizon_days=14):
         int: Planning horizon in minutes.
     """
     base_horizon = sum(task.duration for task in user_tasks)
-    # TODO:
-    # - fix const days
-    # - when we get deadlines use they as horozon
-    # - in future get user horizon
-    return max(base_horizon * 3 + 1440, max_horizon_days * 1440)
+    max_deadline = max(
+        (t.deadline_min for t in user_tasks if getattr(t, 'deadline_min', None) is not None),
+        default=0
+    )
+    return max(base_horizon * 3 + 1440, max_horizon_days * 1440, max_deadline)
 
 
 def generate_blocked_intervals(time_blocks, horizon):
@@ -184,6 +184,17 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14):
 
     # Tasks, including their breaks, cannot overlap with other tasks
     model.add_no_overlap(extended_intervals)
+
+    # Deadline constraints
+    for task in user_tasks:
+        if getattr(task, 'deadline_min', None) is not None:
+            if task.chunks:
+                # Apply to every chunk — since chunks are ordered,
+                # this ensures the last present chunk ends before the deadline
+                for chunk in task.chunks:
+                    model.add(chunk['end_var'] <= task.deadline_min).only_enforce_if(chunk['presence_var'])
+            else:
+                model.add(task.end_var <= task.deadline_min).only_enforce_if(task.presence_var)
 
     # Maximize the number of scheduled tasks
     model.maximize(sum(task.presence_var for task in user_tasks))

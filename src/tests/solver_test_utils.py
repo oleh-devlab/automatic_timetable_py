@@ -45,6 +45,11 @@ class BaseSolverTest(unittest.TestCase):
                         self.assertFalse(solver.value(c['presence_var']), f"Task absent but chunk present for {task.name}")
                         self.assertEqual(solver.value(c['size_var']), 0, f"Task absent but chunk has size > 0 for {task.name}")
                 continue
+            
+            # Deadline invariant: present task must end before its deadline
+            if getattr(task, 'deadline_min', None) is not None:
+                end = solver.value(task.end_var)
+                self.assertLessEqual(end, task.deadline_min, f"Task {task.name} ends at {end} but deadline is {task.deadline_min}")
                 
             if not task.chunks:
                 start = solver.value(task.start_var)
