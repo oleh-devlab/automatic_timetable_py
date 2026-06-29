@@ -20,8 +20,8 @@ def merge_time_blocks(time_blocks):
 
 
 def minutes_to_time(minutes_from_now, now):
-    """Convert minutes from `now` to a 'YYYY-MM-DD HH:MM' datetime string."""
-    return (now + timedelta(minutes=minutes_from_now)).strftime('%Y-%m-%d %H:%M')
+    """Convert minutes from `now` to a 'DD.MM.YYYY HH:MM' datetime string."""
+    return (now + timedelta(minutes=minutes_from_now)).strftime('%d.%m.%Y %H:%M')
 
 
 def parse_time_blocks(time_blocks_raw, now):
@@ -30,8 +30,8 @@ def parse_time_blocks(time_blocks_raw, now):
     for b in time_blocks_raw:
         daily = b.get("daily", True)
         
-        dt_start = datetime.strptime(b["start"], "%Y-%m-%d %H:%M")
-        dt_end = datetime.strptime(b["end"], "%Y-%m-%d %H:%M")
+        dt_start = datetime.strptime(b["start"], "%d.%m.%Y %H:%M")
+        dt_end = datetime.strptime(b["end"], "%d.%m.%Y %H:%M")
         
         if daily:
             s = dt_start.hour * 60 + dt_start.minute

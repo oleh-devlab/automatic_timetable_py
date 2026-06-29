@@ -23,13 +23,13 @@ class TestDataRead(unittest.TestCase):
             ],
             "time_blocks": [
                 {
-                    "start": "2023-10-25 09:00",
-                    "end": "2023-10-25 10:00",
+                    "start": "25.10.2023 09:00",
+                    "end": "25.10.2023 10:00",
                     "daily": True
                 },
                 {
-                    "start": "2023-10-25 15:00",
-                    "end": "2023-10-25 16:00"
+                    "start": "25.10.2023 15:00",
+                    "end": "25.10.2023 16:00"
                 }
             ]
         }
@@ -54,10 +54,10 @@ class TestDataRead(unittest.TestCase):
             
             # Check time_blocks_raw
             self.assertEqual(len(time_blocks_raw), 2)
-            self.assertEqual(time_blocks_raw[0]["start"], "2023-10-25 09:00")
-            self.assertEqual(time_blocks_raw[0]["end"], "2023-10-25 10:00")
+            self.assertEqual(time_blocks_raw[0]["start"], "25.10.2023 09:00")
+            self.assertEqual(time_blocks_raw[0]["end"], "25.10.2023 10:00")
             self.assertTrue(time_blocks_raw[0]["daily"])
             
-            self.assertEqual(time_blocks_raw[1]["start"], "2023-10-25 15:00")
-            self.assertEqual(time_blocks_raw[1]["end"], "2023-10-25 16:00")
+            self.assertEqual(time_blocks_raw[1]["start"], "25.10.2023 15:00")
+            self.assertEqual(time_blocks_raw[1]["end"], "25.10.2023 16:00")
             self.assertTrue(time_blocks_raw[1]["daily"]) # Defaults to True in the code if not provided

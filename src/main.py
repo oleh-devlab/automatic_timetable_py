@@ -22,7 +22,7 @@ def main():
     # Convert deadline strings to minutes from now
     for task in user_tasks:
         if task.deadline is not None:
-            dt_deadline = datetime.strptime(task.deadline, "%Y-%m-%d %H:%M")
+            dt_deadline = datetime.strptime(task.deadline, "%d.%m.%Y %H:%M")
             task.deadline_min = int((dt_deadline - now).total_seconds() / 60)
         else:
             task.deadline_min = None

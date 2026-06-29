@@ -16,7 +16,7 @@ Tasks can be split into smaller work sessions (chunks) using `min_chunk_duration
 - **Remainder Chunks:** If a task's remaining time is less than `max_chunk_duration` but greater than or equal to `min_chunk_duration`, it will simply form a smaller valid chunk.
 
 ### 2. Deadlines
-Tasks can have a `deadline` (e.g., `"2026-06-30 12:00"`).
+Tasks can have a `deadline` (e.g., `"30.06.2026 12:00"`).
 
 - **Strict Limits:** The solver ensures that the task (and all of its chunks, if chunked) ends before the specified deadline.
 - **All-or-Nothing Rule:** CP-SAT uses strict scheduling. If a task requires 120 minutes, but only 90 minutes are available before its deadline, the solver will completely skip the task rather than scheduling it partially. It will appear in the "Skipped tasks" output.
