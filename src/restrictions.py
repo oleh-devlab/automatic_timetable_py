@@ -2,6 +2,7 @@ from ortools.sat.python import cp_model
 
 from utils import merge_time_blocks
 from chunking import calculate_chunks
+from data_structs import TimeBlock
 
 def calculate_horizon(user_tasks, max_horizon_days=14):
     """
@@ -35,8 +36,6 @@ def generate_blocked_intervals(time_blocks, horizon):
     Returns:
         list[tuple[int, int]]: List of non-overlapping intervals in the format (start, end).
     """
-    from data_structs import TimeBlock
-    
     actual_blocks = []
     for tb in time_blocks:
         if tb.daily:

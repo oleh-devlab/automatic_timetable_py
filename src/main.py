@@ -1,11 +1,13 @@
-from ortools.sat.python import cp_model
 import time
 import os
 from datetime import datetime
+start_import_time = time.perf_counter()
+from ortools.sat.python import cp_model
+end_import_time = time.perf_counter()
 
 from restrictions import create_model
 from data_structs import Task
-import data_read
+import data_read as data_read
 from utils import parse_time_blocks, minutes_to_time
 
 def main():
@@ -16,6 +18,8 @@ def main():
 
     # Convert HH:MM strings to minutes from now
     time_blocks = parse_time_blocks(time_blocks_raw, now)
+
+    print("Time taken to import OR-Tools.SAT: {:.6f} seconds".format(end_import_time - start_import_time))
 
     start_time_creating = time.perf_counter()
     model = create_model(user_tasks, time_blocks)
