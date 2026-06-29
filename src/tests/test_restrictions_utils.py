@@ -48,6 +48,15 @@ class TestCalculateHorizon(unittest.TestCase):
         # 14 (default) * 1440 = 20160
         self.assertEqual(calculate_horizon([]), 20160)
 
+    def test_invalid_max_horizon_days(self):
+        """
+        ValueError should be raised if max_horizon_days <= 0.
+        """
+        with self.assertRaises(ValueError):
+            calculate_horizon([], max_horizon_days=0)
+        with self.assertRaises(ValueError):
+            calculate_horizon([], max_horizon_days=-5)
+
 class TestGenerateBlockedIntervals(unittest.TestCase):
     def test_single_non_daily_block(self):
         """A single non-daily block should be returned as-is."""
@@ -98,6 +107,18 @@ class TestGenerateBlockedIntervals(unittest.TestCase):
     def test_empty_input(self):
         """No time blocks should produce an empty result."""
         result = generate_blocked_intervals([], horizon=5000)
+        self.assertEqual(result, [])
+
+    def test_block_ends_exactly_at_zero(self):
+        """A non-daily block ending exactly at 0 is in the past and should be dropped."""
+        blocks = [TimeBlock(-100, 0, daily=False)]
+        result = generate_blocked_intervals(blocks, horizon=5000)
+        self.assertEqual(result, [])
+
+    def test_block_beyond_horizon_is_dropped(self):
+        """A block starting at or after the horizon should not be included."""
+        blocks = [TimeBlock(6000, 7000, daily=False)]
+        result = generate_blocked_intervals(blocks, horizon=5000)
         self.assertEqual(result, [])
 
     def test_daily_block_with_negative_start(self):

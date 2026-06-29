@@ -5,6 +5,8 @@ from chunking import calculate_chunks
 from data_structs import TimeBlock
 
 def calculate_horizon(user_tasks, max_horizon_days=14):
+    if max_horizon_days <= 0:
+        raise ValueError(f"max_horizon_days must be greater than 0, got {max_horizon_days}")
     """
     Calculates the safe planning horizon (maximum available time in minutes).
     
@@ -48,6 +50,8 @@ def generate_blocked_intervals(time_blocks, horizon):
                 curr_start += 1440
                 curr_end += 1440
         else:
+            if tb.start >= horizon:
+                continue
             clamped_start = max(0, tb.start)
             if tb.end > 0:
                 actual_blocks.append(TimeBlock(clamped_start, tb.end, daily=False))
