@@ -10,6 +10,7 @@ def load_data(filepath):
             name=t["name"], 
             duration=t["duration"],
             deadline=t.get("deadline"),
+            priority=t.get("priority", 0),
             min_chunk_duration=t.get("min_chunk_duration"),
             max_chunk_duration=t.get("max_chunk_duration"),
             break_duration=t.get("break_duration", 0)

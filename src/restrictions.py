@@ -60,7 +60,22 @@ def generate_blocked_intervals(time_blocks, horizon):
     return [(block.start, block.end) for block in merge_time_blocks(actual_blocks)]
 
 
-def create_model(user_tasks, time_blocks, max_horizon_days=14):
+def calculate_task_weight(task, priority_threshold=10):
+    """
+    Calculates the task weight for the objective function based on a 2-Tier logic.
+    High tier tasks (priority >= priority_threshold) absolutely dominate.
+    Inside each tier, deadlines dominate over priority.
+    """
+    deadline_days = task.deadline_min // 1440 if getattr(task, 'deadline_min', None) is not None else 3650
+    days_inverted = max(0, 3650 - deadline_days)
+    
+    if task.priority >= priority_threshold:
+        return 100_000_000 + (days_inverted * 10_000) + task.priority
+    else:
+        return 10_000 + (days_inverted * 10) + task.priority
+
+
+def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=10):
     model = cp_model.CpModel()
 
     # Data preparation and calculation of constraints
@@ -196,7 +211,12 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14):
             else:
                 model.add(task.end_var <= task.deadline_min).only_enforce_if(task.presence_var)
 
-    # Maximize the number of scheduled tasks
-    model.maximize(sum(task.presence_var for task in user_tasks))
+    # Maximize the weighted sum of scheduled tasks
+    objective_terms = []
+    for task in user_tasks:
+        weight = calculate_task_weight(task, priority_threshold)
+        objective_terms.append(task.presence_var * weight)
+        
+    model.maximize(sum(objective_terms))
 
     return model
