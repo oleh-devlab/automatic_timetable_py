@@ -1,12 +1,15 @@
 import time
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import data_read as data_read
+
+start_import_time = time.perf_counter()
 from scheduler import Scheduler
+end_import_time = time.perf_counter()
 
 def main():
-    print("Initializing API Library...")
+    print("Time taken to import Scheduler (including OR-Tools): {:.6f} seconds".format(end_import_time - start_import_time))
     start_time_creating = time.perf_counter()
     
     data_path = os.path.join(os.path.dirname(__file__), '../data.json')
@@ -35,31 +38,71 @@ def main():
 
     if result.is_successful:
         print(f"Status: {result.status}")
+      
+        events = []
+        
+        for r in result.fixed_routines:
+            dt_str = f"{r.day.strftime('%Y-%m-%d')} {r.time}"
+            dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+            events.append({
+                'type': 'Fixed Routine',
+                'name': r.name,
+                'start': dt,
+                'end': dt + timedelta(minutes=r.duration),
+                'duration': r.duration,
+                'details': ''
+            })
 
-        if result.fixed_routines:
-            print(f"\nFixed Routines ({len(result.fixed_routines)}):")
-            for r in result.fixed_routines:
-                print(f"  {r.name} ({r.day.strftime('%d.%m.%Y')}): {r.time}, {r.duration} min")
+        for sr in result.scheduled_routines:
+            events.append({
+                'type': 'Flexible Routine',
+                'name': sr.task.name,
+                'start': sr.start_time,
+                'end': sr.end_time,
+                'duration': sr.task.duration,
+                'details': ''
+            })
 
-        if result.scheduled_routines:
-            print(f"\nFlexible Routines Scheduled ({len(result.scheduled_routines)}/{len(result.flexible_routines_info)}):")
-            for sr in result.scheduled_routines:
-                print(f"  Task: {sr.task.name}, Start: {sr.start_time.strftime('%d.%m.%Y %H:%M')}, End: {sr.end_time.strftime('%d.%m.%Y %H:%M')}")
-
-        print(f"\nScheduled tasks ({len(result.scheduled_tasks)}/{len(user_tasks)}):")
         for st in result.scheduled_tasks:
             if st.chunks:
-                print(f"  Task: {st.task.name} (chunked into {len(st.chunks)} parts)")
                 for i, chunk in enumerate(st.chunks):
-                    print(f"    Chunk {i+1}/{len(st.chunks)} ({chunk.duration} min): {chunk.start_time.strftime('%d.%m.%Y %H:%M')} — {chunk.end_time.strftime('%d.%m.%Y %H:%M')}")
+                    events.append({
+                        'type': 'Task Chunk',
+                        'name': st.task.name,
+                        'start': chunk.start_time,
+                        'end': chunk.end_time,
+                        'duration': chunk.duration,
+                        'details': f" (Chunk {i+1}/{len(st.chunks)})"
+                    })
             else:
-                print(f"  Task: {st.task.name}, Start: {st.start_time.strftime('%d.%m.%Y %H:%M')}, End: {st.end_time.strftime('%d.%m.%Y %H:%M')}")
+                events.append({
+                    'type': 'Task',
+                    'name': st.task.name,
+                    'start': st.start_time,
+                    'end': st.end_time,
+                    'duration': st.task.duration,
+                    'details': ''
+                })
+
+        events.sort(key=lambda x: x['start'], reverse=True)
+
+        print("\n--- Schedule (From latest to earliest) ---")
+        current_date = None
+        for e in events:
+            e_date = e['start'].date()
+            if e_date != current_date:
+                print(f"\n=== {e_date.strftime('%d.%m.%Y')} ===")
+                current_date = e_date
+                
+            start_str = e['start'].strftime('%H:%M')
+            end_str = e['end'].strftime('%H:%M') if e['start'].date() == e['end'].date() else e['end'].strftime('%d.%m.%Y %H:%M')
+            print(f"  [{start_str} - {end_str}] {e['type']}: {e['name']}{e['details']} ({e['duration']} min)")
 
         if result.skipped_tasks:
-            print(f"\nSkipped tasks ({len(result.skipped_tasks)}):")
+            print(f"\n--- Skipped tasks ({len(result.skipped_tasks)}) ---")
             for st in result.skipped_tasks:
                 deadline_info = f", deadline: {st.task.deadline}" if st.task.deadline else ""
-                print(f"  Task: {st.task.name} ({st.task.duration} min{deadline_info}) — could not fit")
+                print(f"  {st.task.name} ({st.task.duration} min{deadline_info})")
     else:
         print("No solution found.")
 
