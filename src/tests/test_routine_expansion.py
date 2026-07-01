@@ -11,7 +11,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
     def test_daily_fixed_generates_blocks_for_each_day(self):
         """A daily fixed routine should produce one TimeBlock per day within the horizon."""
         routine = Routine(
-            name="Workout", routine_type="fixed", repeat="daily",
+            name="Workout", type="fixed", repeat="daily",
             duration=60, time="07:00"
         )
         # Monday 2026-07-06 10:00
@@ -33,7 +33,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
     def test_daily_fixed_skips_past_occurrences(self):
         """If the routine's time has already passed today, the first instance is tomorrow."""
         routine = Routine(
-            name="Morning", routine_type="fixed", repeat="daily",
+            name="Morning", type="fixed", repeat="daily",
             duration=30, time="06:00"
         )
         now = datetime(2026, 7, 6, 12, 0)  # noon
@@ -49,7 +49,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
     def test_fixed_without_time_is_skipped(self):
         """A fixed routine with no time field should be silently skipped."""
         routine = Routine(
-            name="Broken", routine_type="fixed", repeat="daily",
+            name="Broken", type="fixed", repeat="daily",
             duration=60, time=None
         )
         now = datetime(2026, 7, 6, 10, 0)
@@ -64,7 +64,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         """A weekly fixed routine should only appear on specified weekdays."""
         # Monday=0 in Python's weekday()
         routine = Routine(
-            name="Piano", routine_type="fixed", repeat="weekly",
+            name="Piano", type="fixed", repeat="weekly",
             duration=60, time="15:00", weekdays=[0, 4]  # Mon and Fri
         )
         # Start on Monday 2026-07-06
@@ -83,7 +83,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
     def test_weekly_with_empty_weekdays_generates_nothing(self):
         """A weekly routine with weekdays=[] should produce no instances."""
         routine = Routine(
-            name="Nothing", routine_type="fixed", repeat="weekly",
+            name="Nothing", type="fixed", repeat="weekly",
             duration=30, time="09:00", weekdays=[]
         )
         now = datetime(2026, 7, 6, 10, 0)
@@ -101,7 +101,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
     def test_daily_flexible_generates_tasks_for_each_day(self):
         """A daily flexible routine should produce one Task per day."""
         routine = Routine(
-            name="Study", routine_type="flexible", repeat="daily",
+            name="Study", type="flexible", repeat="daily",
             duration=30, priority=5, deadline_time="18:00", break_duration=5
         )
         now = datetime(2026, 7, 6, 10, 0)
@@ -124,7 +124,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
     def test_flexible_deadline_is_set_correctly(self):
         """The generated Task's deadline_min should match the routine's deadline_time for its day."""
         routine = Routine(
-            name="Words", routine_type="flexible", repeat="daily",
+            name="Words", type="flexible", repeat="daily",
             duration=30, deadline_time="18:00"
         )
         now = datetime(2026, 7, 6, 10, 0)  # 10:00
@@ -141,7 +141,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
     def test_flexible_without_deadline_defaults_to_2359(self):
         """A flexible routine without deadline_time should default to 23:59."""
         routine = Routine(
-            name="Read", routine_type="flexible", repeat="daily",
+            name="Read", type="flexible", repeat="daily",
             duration=20
         )
         now = datetime(2026, 7, 6, 10, 0)
@@ -157,7 +157,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
     def test_flexible_past_deadline_today_is_skipped(self):
         """If the deadline for today has already passed, that day's instance is skipped."""
         routine = Routine(
-            name="Morning", routine_type="flexible", repeat="daily",
+            name="Morning", type="flexible", repeat="daily",
             duration=30, deadline_time="09:00"
         )
         now = datetime(2026, 7, 6, 12, 0)  # noon
@@ -172,7 +172,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
     def test_weekly_flexible_only_on_correct_weekdays(self):
         """A weekly flexible routine should only appear on specified weekdays."""
         routine = Routine(
-            name="Cleaning", routine_type="flexible", repeat="weekly",
+            name="Cleaning", type="flexible", repeat="weekly",
             duration=90, priority=3, weekdays=[5]  # Saturday
         )
         now = datetime(2026, 7, 6, 10, 0)  # Monday
@@ -187,7 +187,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
     def test_task_name_contains_date(self):
         """Each generated task name should contain the day.month suffix."""
         routine = Routine(
-            name="Study", routine_type="flexible", repeat="daily",
+            name="Study", type="flexible", repeat="daily",
             duration=30
         )
         now = datetime(2026, 7, 6, 10, 0)
@@ -215,7 +215,7 @@ class TestExpandRoutinesEdgeCases(unittest.TestCase):
     def test_zero_horizon_produces_minimal_output(self):
         """A horizon of 0 minutes should produce at most the current-day instance."""
         routine = Routine(
-            name="Quick", routine_type="flexible", repeat="daily",
+            name="Quick", type="flexible", repeat="daily",
             duration=10, deadline_time="23:59"
         )
         now = datetime(2026, 7, 6, 10, 0)
@@ -231,11 +231,11 @@ class TestExpandRoutinesEdgeCases(unittest.TestCase):
     def test_mixed_routines(self):
         """A mix of fixed and flexible routines should produce both blocks and tasks."""
         fixed = Routine(
-            name="Gym", routine_type="fixed", repeat="daily",
+            name="Gym", type="fixed", repeat="daily",
             duration=60, time="07:00"
         )
         flexible = Routine(
-            name="Read", routine_type="flexible", repeat="daily",
+            name="Read", type="flexible", repeat="daily",
             duration=30, priority=2
         )
         now = datetime(2026, 7, 6, 10, 0)

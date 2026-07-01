@@ -1,8 +1,6 @@
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, date
-from typing import List, Optional
-
 from ortools.sat.python import cp_model
 
 from restrictions import create_model, calculate_horizon
@@ -21,7 +19,7 @@ class ScheduledTask:
     task: Task
     start_time: datetime
     end_time: datetime
-    chunks: List[ScheduledChunk] = field(default_factory=list)
+    chunks: list[ScheduledChunk] = field(default_factory=list)
 
 @dataclass
 class ScheduledRoutine:
@@ -50,11 +48,11 @@ class SkippedTask:
 class ScheduleResult:
     def __init__(self, status_name: str):
         self.status = status_name
-        self.scheduled_tasks: List[ScheduledTask] = []
-        self.skipped_tasks: List[SkippedTask] = []
-        self.scheduled_routines: List[ScheduledRoutine] = []
-        self.fixed_routines: List[FixedRoutine] = []
-        self.flexible_routines_info: List[FlexibleRoutineInfo] = []
+        self.scheduled_tasks: list[ScheduledTask] = []
+        self.skipped_tasks: list[SkippedTask] = []
+        self.scheduled_routines: list[ScheduledRoutine] = []
+        self.fixed_routines: list[FixedRoutine] = []
+        self.flexible_routines_info: list[FlexibleRoutineInfo] = []
         
     @property
     def is_successful(self):
@@ -65,9 +63,9 @@ class Scheduler:
         self.max_horizon_days = max_horizon_days
         self.priority_threshold = priority_threshold
         
-        self.tasks: List[Task] = []
-        self.time_blocks: List[TimeBlock] = []
-        self.routines: List[Routine] = []
+        self.tasks: list[Task] = []
+        self.time_blocks: list[TimeBlock] = []
+        self.routines: list[Routine] = []
         
     def add_task(self, task: Task):
         self.tasks.append(task)
@@ -78,7 +76,7 @@ class Scheduler:
     def add_routine(self, routine: Routine):
         self.routines.append(routine)
         
-    def solve(self, start_time: Optional[datetime] = None, timeout_seconds: float = 0.5) -> ScheduleResult:
+    def solve(self, start_time: datetime | None = None, timeout_seconds: float = 0.5) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
         
         # Process deadlines for tasks

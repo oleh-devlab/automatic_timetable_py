@@ -25,7 +25,7 @@ def load_data(filepath):
     routines = [
         Routine(
             name=r["name"],
-            routine_type=r["type"],
+            type=r["type"],
             repeat=r["repeat"],
             duration=r["duration"],
             time=r.get("time"),

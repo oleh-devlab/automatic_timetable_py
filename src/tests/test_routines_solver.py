@@ -56,7 +56,7 @@ class TestRoutinesSolver(BaseSolverTest):
         We leave only a narrow window and verify the routine fits there.
         """
         routine = Routine(
-            name="Study", routine_type="flexible", repeat="daily",
+            name="Study", type="flexible", repeat="daily",
             duration=30, priority=5, deadline_time="23:59"
         )
         # Block everything except [100, 200]
@@ -88,7 +88,7 @@ class TestRoutinesSolver(BaseSolverTest):
         in that blocked slot.
         """
         routine = Routine(
-            name="Gym", routine_type="fixed", repeat="daily",
+            name="Gym", type="fixed", repeat="daily",
             duration=60, time="11:00"
         )
         # A task that could fit at 11:00 but shouldn't because the routine blocks it
@@ -120,7 +120,7 @@ class TestRoutinesSolver(BaseSolverTest):
         over a low-priority user task.
         """
         routine = Routine(
-            name="Critical", routine_type="flexible", repeat="daily",
+            name="Critical", type="flexible", repeat="daily",
             duration=50, priority=10, deadline_time="23:59"
         )
         low_task = Task(name="Optional", duration=50, priority=1, break_duration=0)
@@ -151,11 +151,11 @@ class TestRoutinesSolver(BaseSolverTest):
         A mix of fixed and flexible routines plus regular tasks should all solve together.
         """
         fixed_routine = Routine(
-            name="Gym", routine_type="fixed", repeat="daily",
+            name="Gym", type="fixed", repeat="daily",
             duration=60, time="07:00"
         )
         flex_routine = Routine(
-            name="Study", routine_type="flexible", repeat="daily",
+            name="Study", type="flexible", repeat="daily",
             duration=30, priority=5, deadline_time="18:00", break_duration=5
         )
         task = Task(name="Project", duration=120, break_duration=10)
@@ -186,7 +186,7 @@ class TestRoutinesSolver(BaseSolverTest):
         and other tasks, just like a regular task's break.
         """
         routine = Routine(
-            name="Read", routine_type="flexible", repeat="daily",
+            name="Read", type="flexible", repeat="daily",
             duration=30, priority=5, deadline_time="23:59", break_duration=15
         )
         task = Task(name="Code", duration=30, break_duration=0)
@@ -243,7 +243,7 @@ class TestRoutinesSolver(BaseSolverTest):
         even if there is free time today.
         """
         routine = Routine(
-            name="TomorrowTask", routine_type="flexible", repeat="daily",
+            name="TomorrowTask", type="flexible", repeat="daily",
             duration=60, priority=5, deadline_time="23:59"
         )
         
