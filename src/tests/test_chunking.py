@@ -1,6 +1,7 @@
 import unittest
 from chunking import calculate_chunks
 
+
 class TestCalculateChunks(unittest.TestCase):
     def test_missing_min_or_max(self):
         """If min_chunk_duration or max_chunk_duration is None, should return 1."""
@@ -15,7 +16,7 @@ class TestCalculateChunks(unittest.TestCase):
 
     def test_duration_greater_than_min(self):
         """If duration > min_chunk_duration, should return math.ceil(duration / min_chunk_duration)."""
-        self.assertEqual(calculate_chunks(100, 30, 50), 4) # 100/30 = 3.33 -> ceil = 4
+        self.assertEqual(calculate_chunks(100, 30, 50), 4)  # 100/30 = 3.33 -> ceil = 4
         self.assertEqual(calculate_chunks(90, 30, 50), 3)  # 90/30 = 3.0 -> ceil = 3
 
     def test_exact_division(self):

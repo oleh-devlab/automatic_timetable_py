@@ -39,8 +39,7 @@ class TestCalculateTaskWeight(unittest.TestCase):
         high_weight = calculate_task_weight(high, priority_threshold=10)
         low_weight = calculate_task_weight(low, priority_threshold=10)
 
-        self.assertGreater(high_weight, low_weight,
-                           "Any High Tier task must outweigh any Low Tier task")
+        self.assertGreater(high_weight, low_weight, "Any High Tier task must outweigh any Low Tier task")
 
     def test_custom_priority_threshold(self):
         """Custom threshold separates tiers at a different level."""
@@ -140,5 +139,5 @@ class TestCalculateTaskWeight(unittest.TestCase):
         self.assertEqual(weight, 10_000 + 5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

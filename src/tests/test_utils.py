@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from utils import merge_time_blocks, minutes_to_time, process_time_blocks
 from data_structs import TimeBlock
 
+
 class TestMergeTimeBlocks(unittest.TestCase):
     def test_empty_list(self):
         self.assertEqual(merge_time_blocks([]), [])
@@ -46,12 +47,7 @@ class TestMergeTimeBlocks(unittest.TestCase):
         self.assertEqual(merged[0].end, 30)
 
     def test_multiple_merges_and_sorting(self):
-        blocks = [
-            TimeBlock(50, 60),
-            TimeBlock(10, 30),
-            TimeBlock(20, 40),
-            TimeBlock(65, 75)
-        ]
+        blocks = [TimeBlock(50, 60), TimeBlock(10, 30), TimeBlock(20, 40), TimeBlock(65, 75)]
         merged = merge_time_blocks(blocks)
         self.assertEqual(len(merged), 3)
         self.assertEqual((merged[0].start, merged[0].end), (10, 40))
@@ -61,7 +57,7 @@ class TestMergeTimeBlocks(unittest.TestCase):
 
 class TestMinutesToTime(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2023, 10, 25, 12, 0) # 12:00 PM
+        self.now = datetime(2023, 10, 25, 12, 0)  # 12:00 PM
 
     def test_positive_minutes(self):
         self.assertEqual(minutes_to_time(60, self.now), self.now + timedelta(minutes=60))
@@ -115,7 +111,7 @@ class TestProcessTimeBlocks(unittest.TestCase):
         raw = [TimeBlock("25.10.2023 09:00", "25.10.2023 10:00", daily=True)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
-        # Tomorrow is 1440 min away. 
+        # Tomorrow is 1440 min away.
         # Today it was at -180 min from now (12:00 -> 09:00 = 3h = 180m).
         # Tomorrow will be at 1440 - 180 = 1260
         # End is +60 from start
@@ -136,7 +132,7 @@ class TestProcessTimeBlocks(unittest.TestCase):
         # 23:00 to 02:00. Now is 12:00
         raw = [TimeBlock("25.10.2023 23:00", "26.10.2023 02:00", daily=True)]
         # s = 23*60 = 1380. e = 2*60 = 120 -> e += 1440 = 1560
-        # now_min = 12*60 = 720. 
+        # now_min = 12*60 = 720.
         # start_rel = 1380 - 720 = 660
         # end_rel = 1560 - 720 = 840
         blocks = process_time_blocks(raw, self.now)
@@ -160,5 +156,6 @@ class TestProcessTimeBlocks(unittest.TestCase):
         with self.assertRaises(ValueError):
             process_time_blocks(raw, self.now)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
