@@ -1,6 +1,5 @@
 import unittest
 from datetime import datetime, timedelta
-import os
 
 from utils import merge_time_blocks, minutes_to_time, process_time_blocks
 from data_structs import TimeBlock

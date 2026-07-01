@@ -1,4 +1,3 @@
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, date
 from ortools.sat.python import cp_model

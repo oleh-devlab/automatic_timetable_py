@@ -1,7 +1,5 @@
 import unittest
-from ortools.sat.python import cp_model
 
-from restrictions import create_model
 from data_structs import Task, TimeBlock
 from tests.solver_test_utils import BaseSolverTest
 

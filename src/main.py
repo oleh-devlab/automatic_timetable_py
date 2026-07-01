@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import data_read as data_read
 
 start_import_time = time.perf_counter()
-from scheduler import Scheduler
+from scheduler import Scheduler # noqa: E402
 end_import_time = time.perf_counter()
 
 def main():

@@ -1,5 +1,4 @@
 import unittest
-import os
 
 from restrictions import calculate_horizon, generate_blocked_intervals
 from data_structs import Task, TimeBlock

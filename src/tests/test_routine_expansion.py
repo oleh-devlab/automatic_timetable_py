@@ -73,7 +73,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
 
         _, extra_blocks, routine_info = expand_routines([routine], now, horizon)
 
-        days = [r["day"] for r in routine_info]
+        # days = [r["day"] for r in routine_info]
         # Mon=06.07, Fri=10.07, next Mon=13.07
         for info in routine_info:
             parsed = info["day"]
