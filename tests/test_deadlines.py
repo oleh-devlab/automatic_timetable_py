@@ -1,3 +1,4 @@
+from datetime import timedelta
 import unittest
 
 from src.data_structs import Task, TimeBlock
@@ -12,7 +13,7 @@ class TestDeadlines(BaseSolverTest):
         A task with a generous deadline should be scheduled and
         must finish before (or at) the deadline.
         """
-        task = Task(name="with_deadline", duration=60, break_duration=0)
+        task = Task(name="with_deadline", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task.deadline_min = 500  # plenty of room
 
         solver = self._solve([task])
@@ -26,7 +27,7 @@ class TestDeadlines(BaseSolverTest):
         it must be entirely skipped.
         """
         # Block [0, 100], deadline at 120 → only 20 min free, but task needs 60
-        task = Task(name="tight", duration=60, break_duration=0)
+        task = Task(name="tight", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task.deadline_min = 120
 
         time_blocks = [TimeBlock(start=0, end=100, daily=False)]
@@ -41,7 +42,7 @@ class TestDeadlines(BaseSolverTest):
         should be scheduled.
         """
         # Free time: [0, 60], deadline at 60
-        task = Task(name="exact_deadline", duration=60, break_duration=0)
+        task = Task(name="exact_deadline", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task.deadline_min = 60
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
@@ -58,7 +59,7 @@ class TestDeadlines(BaseSolverTest):
         before the deadline.
         """
         task = Task(
-            name="chunked_deadline", duration=100, min_chunk_duration=20, max_chunk_duration=40, break_duration=5
+            name="chunked_deadline", duration=timedelta(minutes=100), min_chunk_duration=timedelta(minutes=20), max_chunk_duration=timedelta(minutes=40), break_duration=timedelta(minutes=5)
         )
         task.deadline_min = 500
 
@@ -77,7 +78,7 @@ class TestDeadlines(BaseSolverTest):
         Minimum time needed: e.g. 3 chunks (40+40+20) + 2 breaks (5+5) = 110 min.
         Deadline at 30 min makes it impossible.
         """
-        task = Task(name="chunked_no_fit", duration=100, min_chunk_duration=20, max_chunk_duration=40, break_duration=5)
+        task = Task(name="chunked_no_fit", duration=timedelta(minutes=100), min_chunk_duration=timedelta(minutes=20), max_chunk_duration=timedelta(minutes=40), break_duration=timedelta(minutes=5))
         task.deadline_min = 30
 
         solver = self._solve([task])
@@ -89,10 +90,10 @@ class TestDeadlines(BaseSolverTest):
         A task with an impossible deadline gets dropped, but other
         tasks without deadlines should still be scheduled.
         """
-        task_deadline = Task(name="doomed", duration=60, break_duration=0)
+        task_deadline = Task(name="doomed", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task_deadline.deadline_min = 10  # impossible
 
-        task_free = Task(name="free", duration=60, break_duration=0)
+        task_free = Task(name="free", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task_free.deadline_min = None
 
         solver = self._solve([task_deadline, task_free])
@@ -106,7 +107,7 @@ class TestDeadlines(BaseSolverTest):
         even when there's free time after it. Verify that the solver
         doesn't place it after the deadline.
         """
-        task = Task(name="urgent", duration=30, break_duration=0)
+        task = Task(name="urgent", duration=timedelta(minutes=30), break_duration=timedelta(minutes=0))
         task.deadline_min = 100
 
         solver = self._solve([task])
@@ -119,10 +120,10 @@ class TestDeadlines(BaseSolverTest):
         Two tasks with different deadlines: both should be scheduled
         and each must respect its own deadline.
         """
-        task_a = Task(name="early_deadline", duration=30, break_duration=5)
+        task_a = Task(name="early_deadline", duration=timedelta(minutes=30), break_duration=timedelta(minutes=5))
         task_a.deadline_min = 100
 
-        task_b = Task(name="late_deadline", duration=30, break_duration=5)
+        task_b = Task(name="late_deadline", duration=timedelta(minutes=30), break_duration=timedelta(minutes=5))
         task_b.deadline_min = 500
 
         solver = self._solve([task_a, task_b])
@@ -138,7 +139,7 @@ class TestDeadlines(BaseSolverTest):
         Task of 90 min needs to fit in [100, 200]. It should succeed
         since the gap is exactly 100 min.
         """
-        task = Task(name="after_block", duration=90, break_duration=0)
+        task = Task(name="after_block", duration=timedelta(minutes=90), break_duration=timedelta(minutes=0))
         task.deadline_min = 200
 
         time_blocks = [TimeBlock(start=0, end=100, daily=False)]
@@ -155,10 +156,10 @@ class TestDeadlines(BaseSolverTest):
         Only one can fit. The solver should schedule exactly one
         (maximizing the count of scheduled tasks).
         """
-        task_a = Task(name="competitor_a", duration=80, break_duration=0)
+        task_a = Task(name="competitor_a", duration=timedelta(minutes=80), break_duration=timedelta(minutes=0))
         task_a.deadline_min = 100
 
-        task_b = Task(name="competitor_b", duration=80, break_duration=0)
+        task_b = Task(name="competitor_b", duration=timedelta(minutes=80), break_duration=timedelta(minutes=0))
         task_b.deadline_min = 100
 
         time_blocks = [TimeBlock(start=100, end=30000, daily=False)]

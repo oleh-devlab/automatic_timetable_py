@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, mock_open
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.data_read import load_data
 
@@ -33,16 +33,16 @@ class TestDataRead(unittest.TestCase):
             # Check user_tasks
             self.assertEqual(len(user_tasks), 2)
             self.assertEqual(user_tasks[0].name, "Task 1")
-            self.assertEqual(user_tasks[0].duration, 120)
-            self.assertEqual(user_tasks[0].min_chunk_duration, 30)
-            self.assertEqual(user_tasks[0].max_chunk_duration, 60)
-            self.assertEqual(user_tasks[0].break_duration, 5)
+            self.assertEqual(user_tasks[0].duration, timedelta(minutes=120))
+            self.assertEqual(user_tasks[0].min_chunk_duration, timedelta(minutes=30))
+            self.assertEqual(user_tasks[0].max_chunk_duration, timedelta(minutes=60))
+            self.assertEqual(user_tasks[0].break_duration, timedelta(minutes=5))
 
             self.assertEqual(user_tasks[1].name, "Task 2")
-            self.assertEqual(user_tasks[1].duration, 45)
+            self.assertEqual(user_tasks[1].duration, timedelta(minutes=45))
             self.assertIsNone(user_tasks[1].min_chunk_duration)
             self.assertIsNone(user_tasks[1].max_chunk_duration)
-            self.assertEqual(user_tasks[1].break_duration, 0)
+            self.assertEqual(user_tasks[1].break_duration, timedelta(0))
 
             # Check time_blocks
             self.assertEqual(len(time_blocks), 2)

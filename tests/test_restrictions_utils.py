@@ -1,3 +1,4 @@
+from datetime import timedelta
 import unittest
 
 from src.restrictions import calculate_horizon, generate_blocked_intervals
@@ -10,7 +11,7 @@ class TestCalculateHorizon(unittest.TestCase):
         When base_horizon * 3 + 1440 is LESS than max_horizon_days * 1440,
         it should return max_horizon_days * 1440.
         """
-        tasks_small = [Task(name="Task 1", duration=30), Task(name="Task 2", duration=30)]
+        tasks_small = [Task(name="Task 1", duration=timedelta(minutes=30)), Task(name="Task 2", duration=timedelta(minutes=30))]
         # max_horizon_days = 14 -> 14 * 1440 = 20160
         # Total duration = 60 min. -> 60 * 3 + 1440 = 1620
         # max(1620, 20160) = 20160
@@ -21,7 +22,7 @@ class TestCalculateHorizon(unittest.TestCase):
         When base_horizon * 3 + 1440 is GREATER than max_horizon_days * 1440,
         it should return base_horizon * 3 + 1440.
         """
-        tasks_large = [Task(name="Task 1", duration=500), Task(name="Task 2", duration=500)]
+        tasks_large = [Task(name="Task 1", duration=timedelta(minutes=500)), Task(name="Task 2", duration=timedelta(minutes=500))]
         # max_horizon_days = 2 -> 2 * 1440 = 2880
         # Total duration = 1000 min. -> 1000 * 3 + 1440 = 4440
         # max(4440, 2880) = 4440

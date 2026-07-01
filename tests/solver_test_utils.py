@@ -61,7 +61,7 @@ class BaseSolverTest(unittest.TestCase):
             if not task.chunks:
                 start = solver.value(task.start_var)
                 end = solver.value(task.end_var)
-                self.assertEqual(end - start, task.duration, f"Task {task.name} duration mismatch")
+                self.assertEqual(end - start, task.duration_min, f"Task {task.name} duration mismatch")
                 self.assertGreaterEqual(start, 0, f"Task {task.name} starts before 0")
                 self.assertLessEqual(end, horizon, f"Task {task.name} ends after horizon")
                 strict_intervals.append((start, end, f"Task {task.name}"))
@@ -79,7 +79,7 @@ class BaseSolverTest(unittest.TestCase):
                         strict_intervals.append((start, end, f"Task {task.name} Chunk {idx}"))
 
                 total_size = sum(solver.value(c["size_var"]) for _, c in present_chunks)
-                self.assertEqual(total_size, task.duration, f"Chunk sizes sum mismatch for {task.name}")
+                self.assertEqual(total_size, task.duration_min, f"Chunk sizes sum mismatch for {task.name}")
 
                 indices = [idx for idx, _ in present_chunks]
                 self.assertEqual(indices, list(range(len(present_chunks))), f"Chunks have holes in {task.name}")
@@ -90,7 +90,7 @@ class BaseSolverTest(unittest.TestCase):
                     end1 = solver.value(c1["end_var"])
                     start2 = solver.value(c2["start_var"])
                     self.assertGreaterEqual(
-                        start2, end1 + task.break_duration, f"Break violated in {task.name} between chunks"
+                        start2, end1 + task.break_duration_min, f"Break violated in {task.name} between chunks"
                     )
 
         strict_intervals.sort(key=lambda x: x[0])

@@ -38,7 +38,7 @@ def main():
     dt_task_deadline = dt_now + timedelta(days=2)
     
     scheduler.add_time_block(TimeBlock(start=dt_block_start, end=dt_block_end, daily=False))
-    scheduler.add_task(Task(name="Test Native Datetime Task", duration=30, deadline=dt_task_deadline, priority=10))
+    scheduler.add_task(Task(name="Test Native Datetime Task", duration=timedelta(minutes=30), deadline=dt_task_deadline, priority=10))
 
     end_time_creating = time.perf_counter()
     print("Time taken to load and create scheduler: {:.6f} seconds".format(end_time_creating - start_time_creating))
@@ -62,8 +62,8 @@ def main():
                     "type": "Fixed Routine",
                     "name": r.name,
                     "start": dt,
-                    "end": dt + timedelta(minutes=r.duration),
-                    "duration": r.duration,
+                    "end": dt + r.duration,
+                    "duration": int(r.duration.total_seconds() // 60),
                     "details": "",
                 }
             )
@@ -75,7 +75,7 @@ def main():
                     "name": sr.task.name,
                     "start": sr.start_time,
                     "end": sr.end_time,
-                    "duration": sr.task.duration,
+                    "duration": int(sr.task.duration.total_seconds() // 60),
                     "details": "",
                 }
             )
@@ -89,7 +89,7 @@ def main():
                             "name": st.task.name,
                             "start": chunk.start_time,
                             "end": chunk.end_time,
-                            "duration": chunk.duration,
+                            "duration": int(chunk.duration.total_seconds() // 60),
                             "details": f" (Chunk {i+1}/{len(st.chunks)})",
                         }
                     )
@@ -100,7 +100,7 @@ def main():
                         "name": st.task.name,
                         "start": st.start_time,
                         "end": st.end_time,
-                        "duration": st.task.duration,
+                        "duration": int(st.task.duration.total_seconds() // 60),
                         "details": "",
                     }
                 )
@@ -127,7 +127,7 @@ def main():
             print(f"\n--- Skipped tasks ({len(result.skipped_tasks)}) ---")
             for st in result.skipped_tasks:
                 deadline_info = f", deadline: {st.task.deadline}" if st.task.deadline else ""
-                print(f"  {st.task.name} ({st.task.duration} min{deadline_info})")
+                print(f"  {st.task.name} ({int(st.task.duration.total_seconds() // 60)} min{deadline_info})")
     else:
         print("No solution found.")
 

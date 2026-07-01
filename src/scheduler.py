@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from ortools.sat.python import cp_model
 
 from .restrictions import create_model, calculate_horizon
@@ -12,7 +12,7 @@ from .routine_expansion import expand_routines
 class ScheduledChunk:
     start_time: datetime
     end_time: datetime
-    duration: int
+    duration: timedelta
 
 
 @dataclass
@@ -35,7 +35,7 @@ class FixedRoutine:
     name: str
     day: date
     time: str
-    duration: int
+    duration: timedelta
 
 
 @dataclass
@@ -43,7 +43,7 @@ class FlexibleRoutineInfo:
     name: str
     day: date
     deadline: datetime
-    duration: int
+    duration: timedelta
 
 
 @dataclass
@@ -156,7 +156,7 @@ class Scheduler:
                                     cs = minutes_to_time(solver.value(chunk["start_var"]), now)
                                     ce = minutes_to_time(solver.value(chunk["end_var"]), now)
                                     csize = solver.value(chunk["size_var"])
-                                    scheduled_task.chunks.append(ScheduledChunk(cs, ce, csize))
+                                    scheduled_task.chunks.append(ScheduledChunk(cs, ce, timedelta(minutes=csize)))
                         result.scheduled_tasks.append(scheduled_task)
                 else:
                     if not getattr(task, "is_routine", False):

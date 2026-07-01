@@ -41,7 +41,7 @@ def expand_routines(routines, now, horizon_minutes):
                 routine_dt = datetime.combine(current_date, t_val)
 
                 start_min = int((routine_dt - now).total_seconds() / 60)
-                end_min = start_min + routine.duration
+                end_min = start_min + routine.duration_min
 
                 if end_min > 0 and start_min <= horizon_minutes:
                     extra_blocks.append(TimeBlock(start_min, end_min, daily=False))
@@ -66,7 +66,7 @@ def expand_routines(routines, now, horizon_minutes):
 
                 # Only include if the deadline is in the future
                 # and it's within our horizon
-                if deadline_min > 0 and deadline_min - routine.duration <= horizon_minutes:
+                if deadline_min > 0 and deadline_min - routine.duration_min <= horizon_minutes:
                     # We do NOT use Pomodoro chunking for routines, so we don't set min/max chunk duration.
                     task_name = f"{routine.name} ({current_date.strftime('%d.%m')})"
                     t = Task(

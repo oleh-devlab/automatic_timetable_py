@@ -18,7 +18,7 @@ def calculate_horizon(user_tasks, max_horizon_days=14):
     Returns:
         int: Planning horizon in minutes.
     """
-    base_horizon = sum(task.duration for task in user_tasks)
+    base_horizon = sum(task.duration_min for task in user_tasks)
     max_deadline = max((t.deadline_min for t in user_tasks if getattr(t, "deadline_min", None) is not None), default=0)
     return max(base_horizon * 3 + 1440, max_horizon_days * 1440, max_deadline)
 
@@ -93,7 +93,7 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
     # Create variables for each user task
     for i, task in enumerate(user_tasks):
-        needs_chunking = task.min_chunk_duration is not None and task.duration > task.min_chunk_duration
+        needs_chunking = task.min_chunk_duration_min is not None and task.duration_min > task.min_chunk_duration_min
 
         if needs_chunking:
             max_chunks = calculate_chunks(
@@ -108,7 +108,7 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
                 chunk = {}
                 chunk["start_var"] = model.new_int_var(task.start_min, horizon, f"start_{i}_chunk_{c}")
                 chunk["end_var"] = model.new_int_var(task.start_min, horizon, f"end_{i}_chunk_{c}")
-                chunk["size_var"] = model.new_int_var(0, task.max_chunk_duration, f"size_{i}_chunk_{c}")
+                chunk["size_var"] = model.new_int_var(0, task.max_chunk_duration_min, f"size_{i}_chunk_{c}")
                 chunk["presence_var"] = model.new_bool_var(f"presence_{i}_chunk_{c}")
 
                 chunk["interval_var"] = model.new_optional_interval_var(
@@ -123,9 +123,9 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
                 strict_intervals.append(chunk["interval_var"])
 
                 ext_size = model.new_int_var(
-                    0, task.max_chunk_duration + task.break_duration, f"ext_size_{i}_chunk_{c}"
+                    0, task.max_chunk_duration_min + task.break_duration_min, f"ext_size_{i}_chunk_{c}"
                 )
-                model.add(ext_size == chunk["size_var"] + task.break_duration).only_enforce_if(chunk["presence_var"])
+                model.add(ext_size == chunk["size_var"] + task.break_duration_min).only_enforce_if(chunk["presence_var"])
                 model.add(ext_size == 0).only_enforce_if(chunk["presence_var"].negated())
 
                 ext_end = model.new_int_var(0, horizon * 2, f"ext_end_{i}_chunk_{c}")
@@ -146,16 +146,16 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
                     prev_chunk = task.chunks[c - 1]
                     model.add_implication(chunk["presence_var"], prev_chunk["presence_var"])
 
-                    model.add(chunk["start_var"] >= prev_chunk["end_var"] + task.break_duration).only_enforce_if(
+                    model.add(chunk["start_var"] >= prev_chunk["end_var"] + task.break_duration_min).only_enforce_if(
                         chunk["presence_var"]
                     )
 
                 if c < max_chunks - 1:
                     next_chunk = task.chunks[c + 1]
 
-                    model.add(chunk["size_var"] >= task.min_chunk_duration).only_enforce_if(next_chunk["presence_var"])
+                    model.add(chunk["size_var"] >= task.min_chunk_duration_min).only_enforce_if(next_chunk["presence_var"])
 
-            model.add(sum(chunk["size_var"] for chunk in task.chunks) == task.duration).only_enforce_if(
+            model.add(sum(c["size_var"] for c in task.chunks) == task.duration_min).only_enforce_if(
                 task.presence_var
             )
 
@@ -171,13 +171,13 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
             task.end_var = model.new_int_var(task.start_min, horizon, f"end_{i}")
             task.presence_var = model.new_bool_var(f"presence_{i}")
             task.interval_var = model.new_optional_interval_var(
-                task.start_var, task.duration, task.end_var, task.presence_var, f"task_{task.name}_interval"
+                task.start_var, task.duration_min, task.end_var, task.presence_var, f"task_interval_{i}"
             )
             strict_intervals.append(task.interval_var)
 
             # Extended interval for global breaks (even for tasks without chunks)
-            ext_size = model.new_int_var(0, task.duration + task.break_duration, f"ext_size_{i}")
-            model.add(ext_size == task.duration + task.break_duration).only_enforce_if(task.presence_var)
+            ext_size = model.new_int_var(0, task.duration_min + task.break_duration_min, f"ext_size_{i}")
+            model.add(ext_size == task.duration_min + task.break_duration_min).only_enforce_if(task.presence_var)
             model.add(ext_size == 0).only_enforce_if(task.presence_var.negated())
 
             ext_end = model.new_int_var(0, horizon * 2, f"ext_end_{i}")

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, mock_open
 import json
-from datetime import time
+from datetime import datetime, time, timedelta
 
 from src.data_read import load_data
 
@@ -49,18 +49,18 @@ class TestDataReadRoutines(unittest.TestCase):
             self.assertEqual(routines[0].type, "fixed")
             self.assertEqual(routines[0].repeat, "daily")
             self.assertEqual(routines[0].time, time(7, 0))
-            self.assertEqual(routines[0].duration, 60)
+            self.assertEqual(routines[0].duration, timedelta(minutes=60))
             self.assertEqual(routines[0].priority, 0)  # default
-            self.assertEqual(routines[0].break_duration, 0)  # default
+            self.assertEqual(routines[0].break_duration, timedelta(0))  # default
 
             # Flexible daily routine
             self.assertEqual(routines[1].name, "Study")
             self.assertEqual(routines[1].type, "flexible")
             self.assertEqual(routines[1].repeat, "daily")
             self.assertEqual(routines[1].deadline_time, time(18, 0))
-            self.assertEqual(routines[1].duration, 30)
+            self.assertEqual(routines[1].duration, timedelta(minutes=30))
             self.assertEqual(routines[1].priority, 5)
-            self.assertEqual(routines[1].break_duration, 5)
+            self.assertEqual(routines[1].break_duration, timedelta(minutes=5))
             self.assertIsNone(routines[1].weekdays)
 
             # Weekly flexible routine
@@ -68,9 +68,9 @@ class TestDataReadRoutines(unittest.TestCase):
             self.assertEqual(routines[2].type, "flexible")
             self.assertEqual(routines[2].repeat, "weekly")
             self.assertEqual(routines[2].weekdays, [5])
-            self.assertEqual(routines[2].duration, 90)
+            self.assertEqual(routines[2].duration, timedelta(minutes=90))
             self.assertEqual(routines[2].priority, 3)
-            self.assertEqual(routines[2].break_duration, 0)  # default
+            self.assertEqual(routines[2].break_duration, timedelta(0))  # default
             self.assertIsNone(routines[2].time)
 
     def test_load_data_without_routines_section(self):

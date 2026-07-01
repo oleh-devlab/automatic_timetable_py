@@ -1,3 +1,4 @@
+from datetime import timedelta
 import unittest
 
 from src.data_structs import Task, TimeBlock
@@ -15,10 +16,10 @@ class TestPriorities(BaseSolverTest):
         over the Low Tier task — even if the Low Tier has a closer deadline.
         """
         # 60 min free slot: [0, 60], then blocked until horizon
-        high = Task(name="university", duration=60, priority=10, break_duration=0)
+        high = Task(name="university", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
         high.deadline_min = 1440 * 7  # far deadline
 
-        low = Task(name="personal", duration=60, priority=9, break_duration=0)
+        low = Task(name="personal", duration=timedelta(minutes=60), priority=9, break_duration=timedelta(minutes=0))
         low.deadline_min = 100  # very close deadline
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
@@ -34,10 +35,10 @@ class TestPriorities(BaseSolverTest):
         Here: 1 High Tier (60 min) vs 3 Low Tier (20 min each = 60 min total).
         """
         # 60 min free slot
-        high = Task(name="uni_hw", duration=60, priority=10, break_duration=0)
+        high = Task(name="uni_hw", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
         high.deadline_min = None
 
-        lows = [Task(name=f"personal_{i}", duration=20, priority=9, break_duration=0) for i in range(3)]
+        lows = [Task(name=f"personal_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)) for i in range(3)]
         for t in lows:
             t.deadline_min = 60  # urgent!
 
@@ -56,10 +57,10 @@ class TestPriorities(BaseSolverTest):
         Within the same tier (Low), when only one task fits,
         the task with the closer deadline should be chosen.
         """
-        task_close = Task(name="urgent", duration=60, priority=2, break_duration=0)
+        task_close = Task(name="urgent", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
         task_close.deadline_min = 100
 
-        task_far = Task(name="not_urgent", duration=60, priority=9, break_duration=0)
+        task_far = Task(name="not_urgent", duration=timedelta(minutes=60), priority=9, break_duration=timedelta(minutes=0))
         task_far.deadline_min = 1440 * 7
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
@@ -73,10 +74,10 @@ class TestPriorities(BaseSolverTest):
         """
         Same tier, same deadline: the task with the higher priority wins.
         """
-        task_high_p = Task(name="high_prio", duration=60, priority=8, break_duration=0)
+        task_high_p = Task(name="high_prio", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0))
         task_high_p.deadline_min = 100
 
-        task_low_p = Task(name="low_prio", duration=60, priority=2, break_duration=0)
+        task_low_p = Task(name="low_prio", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
         task_low_p.deadline_min = 100
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
@@ -94,10 +95,10 @@ class TestPriorities(BaseSolverTest):
         of weights), it will choose the three non-urgent tasks to maximize productivity.
         """
         # 60 min free slot
-        urgent_task = Task(name="urgent_but_long", duration=60, priority=2, break_duration=0)
+        urgent_task = Task(name="urgent_but_long", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
         urgent_task.deadline_min = 100  # very close deadline
 
-        non_urgent_tasks = [Task(name=f"non_urgent_{i}", duration=20, priority=9, break_duration=0) for i in range(3)]
+        non_urgent_tasks = [Task(name=f"non_urgent_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)) for i in range(3)]
         for t in non_urgent_tasks:
             t.deadline_min = 1440 * 7  # 1 week away
 
@@ -118,10 +119,10 @@ class TestPriorities(BaseSolverTest):
         When there's enough time, all tasks should be scheduled
         regardless of priority or tier.
         """
-        high = Task(name="uni", duration=60, priority=10, break_duration=0)
+        high = Task(name="uni", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
         high.deadline_min = None
 
-        low = Task(name="personal", duration=60, priority=2, break_duration=0)
+        low = Task(name="personal", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
         low.deadline_min = None
 
         solver = self._solve([high, low])
@@ -133,7 +134,7 @@ class TestPriorities(BaseSolverTest):
 
     def test_default_priority_zero(self):
         """Tasks without priority (default 0) should be schedulable."""
-        task = Task(name="default", duration=30, break_duration=0)
+        task = Task(name="default", duration=timedelta(minutes=30), break_duration=timedelta(minutes=0))
         task.deadline_min = None
 
         solver = self._solve([task])

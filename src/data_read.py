@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from .data_structs import Task, TimeBlock, Routine
 
 
@@ -20,12 +20,12 @@ def load_data(filepath):
     user_tasks = [
         Task(
             name=t["name"],
-            duration=t["duration"],
+            duration=timedelta(minutes=t["duration"]),
             deadline=_parse_datetime(t.get("deadline")),
             priority=t.get("priority", 0),
-            min_chunk_duration=t.get("min_chunk_duration"),
-            max_chunk_duration=t.get("max_chunk_duration"),
-            break_duration=t.get("break_duration", 0),
+            min_chunk_duration=timedelta(minutes=t["min_chunk_duration"]) if t.get("min_chunk_duration") is not None else None,
+            max_chunk_duration=timedelta(minutes=t["max_chunk_duration"]) if t.get("max_chunk_duration") is not None else None,
+            break_duration=timedelta(minutes=t.get("break_duration", 0)),
         )
         for t in data.get("user_tasks", [])
     ]
@@ -43,12 +43,12 @@ def load_data(filepath):
             name=r["name"],
             type=r["type"],
             repeat=r["repeat"],
-            duration=r["duration"],
+            duration=timedelta(minutes=r["duration"]),
             time=_parse_time(r.get("time")),
             deadline_time=_parse_time(r.get("deadline_time")),
             weekdays=r.get("weekdays"),
             priority=r.get("priority", 0),
-            break_duration=r.get("break_duration", 0),
+            break_duration=timedelta(minutes=r.get("break_duration", 0)),
         )
         for r in data.get("routines", [])
     ]

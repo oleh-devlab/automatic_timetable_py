@@ -1,6 +1,5 @@
 import unittest
-from datetime import datetime, time
-
+from datetime import datetime, time, timedelta
 from ortools.sat.python import cp_model
 
 from src.data_structs import Task, TimeBlock, Routine
@@ -53,7 +52,7 @@ class TestRoutinesSolver(BaseSolverTest):
         A flexible routine must not overlap with existing time blocks.
         We leave only a narrow window and verify the routine fits there.
         """
-        routine = Routine(name="Study", type="flexible", repeat="daily", duration=30, priority=5, deadline_time=time(23, 59))
+        routine = Routine(name="Study", type="flexible", repeat="daily", duration=timedelta(minutes=30), priority=5, deadline_time=time(23, 59))
         # Block everything except [100, 200]
         time_blocks = [TimeBlock(start=0, end=100, daily=False), TimeBlock(start=200, end=30000, daily=False)]
         now = datetime(2026, 7, 6, 10, 0)
@@ -77,9 +76,9 @@ class TestRoutinesSolver(BaseSolverTest):
         A fixed routine creates a TimeBlock. A user task must not be scheduled
         in that blocked slot.
         """
-        routine = Routine(name="Gym", type="fixed", repeat="daily", duration=60, time=time(11, 0))
+        routine = Routine(name="Gym", type="fixed", repeat="daily", duration=timedelta(minutes=60), time=time(11, 0))
         # A task that could fit at 11:00 but shouldn't because the routine blocks it
-        task = Task(name="Work", duration=60, break_duration=0)
+        task = Task(name="Work", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task.deadline_min = None
 
         now = datetime(2026, 7, 6, 10, 0)
@@ -105,9 +104,9 @@ class TestRoutinesSolver(BaseSolverTest):
         over a low-priority user task.
         """
         routine = Routine(
-            name="Critical", type="flexible", repeat="daily", duration=50, priority=10, deadline_time=time(23, 59)
+            name="Critical", type="flexible", repeat="daily", duration=timedelta(minutes=50), priority=10, deadline_time=time(23, 59)
         )
-        low_task = Task(name="Optional", duration=50, priority=1, break_duration=0)
+        low_task = Task(name="Optional", duration=timedelta(minutes=50), priority=1, break_duration=timedelta(minutes=0))
         low_task.deadline_min = None
 
         # Only 50 min free → only one of the two can fit
@@ -131,17 +130,17 @@ class TestRoutinesSolver(BaseSolverTest):
         """
         A mix of fixed and flexible routines plus regular tasks should all solve together.
         """
-        fixed_routine = Routine(name="Gym", type="fixed", repeat="daily", duration=60, time=time(7, 0))
+        fixed_routine = Routine(name="Gym", type="fixed", repeat="daily", duration=timedelta(minutes=60), time=time(7, 0))
         flex_routine = Routine(
             name="Study",
             type="flexible",
             repeat="daily",
-            duration=30,
+            duration=timedelta(minutes=30),
             priority=5,
             deadline_time=time(18, 0),
-            break_duration=5,
+            break_duration=timedelta(minutes=5),
         )
-        task = Task(name="Project", duration=120, break_duration=10)
+        task = Task(name="Project", duration=timedelta(minutes=120), break_duration=timedelta(minutes=10))
         task.deadline_min = None
 
         now = datetime(2026, 7, 6, 10, 0)
@@ -172,12 +171,12 @@ class TestRoutinesSolver(BaseSolverTest):
             name="Read",
             type="flexible",
             repeat="daily",
-            duration=30,
+            duration=timedelta(minutes=30),
             priority=5,
             deadline_time=time(23, 59),
-            break_duration=15,
+            break_duration=timedelta(minutes=15),
         )
-        task = Task(name="Code", duration=30, break_duration=0)
+        task = Task(name="Code", duration=timedelta(minutes=30), break_duration=timedelta(minutes=0))
         task.deadline_min = None
 
         now = datetime(2026, 7, 6, 10, 0)
@@ -199,14 +198,14 @@ class TestRoutinesSolver(BaseSolverTest):
                 # Routine comes before task → must respect routine's break
                 self.assertGreaterEqual(
                     task_start,
-                    rt_end + rt.break_duration,
+                    rt_end + rt.break_duration_min,
                     f"Task starts at {task_start} but routine ends at {rt_end} with break {rt.break_duration}",
                 )
             elif task_start < rt_start:
                 # Task comes before routine → must respect task's break
                 self.assertGreaterEqual(
                     rt_start,
-                    task_end + task.break_duration,
+                    task_end + task.break_duration_min,
                     f"Routine starts at {rt_start} but task ends at {task_end} with break {task.break_duration}",
                 )
 
@@ -214,7 +213,7 @@ class TestRoutinesSolver(BaseSolverTest):
         """
         When routines list is empty, the solver should work exactly as before.
         """
-        task = Task(name="Solo", duration=60, break_duration=0)
+        task = Task(name="Solo", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
         task.deadline_min = None
 
         solver, all_tasks, routine_info = self._expand_and_solve([], user_tasks=[task])
@@ -229,7 +228,7 @@ class TestRoutinesSolver(BaseSolverTest):
         even if there is free time today.
         """
         routine = Routine(
-            name="TomorrowTask", type="flexible", repeat="daily", duration=60, priority=5, deadline_time=time(23, 59)
+            name="TomorrowTask", type="flexible", repeat="daily", duration=timedelta(minutes=60), priority=5, deadline_time=time(23, 59)
         )
 
         # now is 10:00 on Day 0
