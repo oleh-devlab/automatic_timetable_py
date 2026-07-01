@@ -36,7 +36,7 @@ class TestDataRead(unittest.TestCase):
         mock_file_content = json.dumps(mock_json_data)
         
         with patch("builtins.open", mock_open(read_data=mock_file_content)):
-            user_tasks, time_blocks_raw, routines = load_data("dummy_path.json")
+            user_tasks, time_blocks, routines = load_data("dummy_path.json")
             
             # Check user_tasks
             self.assertEqual(len(user_tasks), 2)
@@ -52,12 +52,12 @@ class TestDataRead(unittest.TestCase):
             self.assertIsNone(user_tasks[1].max_chunk_duration)
             self.assertEqual(user_tasks[1].break_duration, 0)
             
-            # Check time_blocks_raw
-            self.assertEqual(len(time_blocks_raw), 2)
-            self.assertEqual(time_blocks_raw[0]["start"], "25.10.2023 09:00")
-            self.assertEqual(time_blocks_raw[0]["end"], "25.10.2023 10:00")
-            self.assertTrue(time_blocks_raw[0]["daily"])
+            # Check time_blocks
+            self.assertEqual(len(time_blocks), 2)
+            self.assertEqual(time_blocks[0].start_str, "25.10.2023 09:00")
+            self.assertEqual(time_blocks[0].end_str, "25.10.2023 10:00")
+            self.assertTrue(time_blocks[0].daily)
             
-            self.assertEqual(time_blocks_raw[1]["start"], "25.10.2023 15:00")
-            self.assertEqual(time_blocks_raw[1]["end"], "25.10.2023 16:00")
-            self.assertTrue(time_blocks_raw[1]["daily"]) # Defaults to True in the code if not provided
+            self.assertEqual(time_blocks[1].start_str, "25.10.2023 15:00")
+            self.assertEqual(time_blocks[1].end_str, "25.10.2023 16:00")
+            self.assertTrue(time_blocks[1].daily)

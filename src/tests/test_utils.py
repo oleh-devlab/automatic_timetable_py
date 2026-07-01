@@ -1,8 +1,8 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
-from utils import merge_time_blocks, minutes_to_time, parse_time_blocks
+from utils import merge_time_blocks, minutes_to_time, process_time_blocks
 from data_structs import TimeBlock
 
 class TestMergeTimeBlocks(unittest.TestCase):
@@ -65,63 +65,47 @@ class TestMinutesToTime(unittest.TestCase):
         self.now = datetime(2023, 10, 25, 12, 0) # 12:00 PM
 
     def test_positive_minutes(self):
-        self.assertEqual(minutes_to_time(60, self.now), "25.10.2023 13:00")
-        self.assertEqual(minutes_to_time(15, self.now), "25.10.2023 12:15")
+        self.assertEqual(minutes_to_time(60, self.now), self.now + timedelta(minutes=60))
+        self.assertEqual(minutes_to_time(15, self.now), self.now + timedelta(minutes=15))
 
     def test_negative_minutes(self):
-        self.assertEqual(minutes_to_time(-60, self.now), "25.10.2023 11:00")
+        self.assertEqual(minutes_to_time(-60, self.now), self.now + timedelta(minutes=-60))
 
     def test_zero_minutes(self):
-        self.assertEqual(minutes_to_time(0, self.now), "25.10.2023 12:00")
+        self.assertEqual(minutes_to_time(0, self.now), self.now)
 
     def test_cross_day(self):
-        self.assertEqual(minutes_to_time(1440, self.now), "26.10.2023 12:00")
+        self.assertEqual(minutes_to_time(1440, self.now), self.now + timedelta(minutes=1440))
 
 
-class TestParseTimeBlocks(unittest.TestCase):
+class TestProcessTimeBlocks(unittest.TestCase):
     def setUp(self):
         # "now" is 25.10.2023 12:00
         self.now = datetime(2023, 10, 25, 12, 0)
 
     def test_non_daily_future(self):
-        raw = [{
-            "start": "25.10.2023 13:00",
-            "end": "25.10.2023 14:00",
-            "daily": False
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 13:00", "25.10.2023 14:00", daily=False)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, 60)
         self.assertEqual(blocks[0].end, 120)
         self.assertFalse(blocks[0].daily)
 
     def test_non_daily_past(self):
-        raw = [{
-            "start": "25.10.2023 10:00",
-            "end": "25.10.2023 11:00",
-            "daily": False
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 10:00", "25.10.2023 11:00", daily=False)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 0)
 
     def test_non_daily_partially_past(self):
-        raw = [{
-            "start": "25.10.2023 11:30",
-            "end": "25.10.2023 12:30",
-            "daily": False
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 11:30", "25.10.2023 12:30", daily=False)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, -30)
         self.assertEqual(blocks[0].end, 30)
 
     def test_daily_future_today(self):
-        raw = [{
-            "start": "25.10.2023 14:00",
-            "end": "25.10.2023 15:00",
-            "daily": True
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 14:00", "25.10.2023 15:00", daily=True)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, 120)
         self.assertEqual(blocks[0].end, 180)
@@ -129,12 +113,8 @@ class TestParseTimeBlocks(unittest.TestCase):
 
     def test_daily_past_today(self):
         # Passed for today, so it should be scheduled for tomorrow
-        raw = [{
-            "start": "25.10.2023 09:00",
-            "end": "25.10.2023 10:00",
-            "daily": True
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 09:00", "25.10.2023 10:00", daily=True)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         # Tomorrow is 1440 min away. 
         # Today it was at -180 min from now (12:00 -> 09:00 = 3h = 180m).
@@ -146,12 +126,8 @@ class TestParseTimeBlocks(unittest.TestCase):
 
     def test_daily_partially_past(self):
         # Started at 11:30, ends at 12:30. Now is 12:00.
-        raw = [{
-            "start": "25.10.2023 11:30",
-            "end": "25.10.2023 12:30",
-            "daily": True
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 11:30", "25.10.2023 12:30", daily=True)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, -30)
         self.assertEqual(blocks[0].end, 30)
@@ -159,70 +135,31 @@ class TestParseTimeBlocks(unittest.TestCase):
 
     def test_daily_crosses_midnight(self):
         # 23:00 to 02:00. Now is 12:00
-        raw = [{
-            "start": "25.10.2023 23:00",
-            "end": "26.10.2023 02:00",
-            "daily": True
-        }]
+        raw = [TimeBlock("25.10.2023 23:00", "26.10.2023 02:00", daily=True)]
         # s = 23*60 = 1380. e = 2*60 = 120 -> e += 1440 = 1560
         # now_min = 12*60 = 720. 
         # start_rel = 1380 - 720 = 660
         # end_rel = 1560 - 720 = 840
-        blocks = parse_time_blocks(raw, self.now)
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, 660)
         self.assertEqual(blocks[0].end, 840)
         self.assertTrue(blocks[0].daily)
 
-    def test_missing_start_key(self):
-        """Should raise KeyError if 'start' or 'end' is missing."""
-        raw = [{"end": "25.10.2023 14:00", "daily": True}]
-        with self.assertRaises(KeyError):
-            parse_time_blocks(raw, self.now)
-
-    def test_missing_daily_key_defaults_to_true(self):
-        """If 'daily' is missing, it should default to True."""
-        raw = [{
-            "start": "25.10.2023 14:00",
-            "end": "25.10.2023 15:00"
-        }]
-        blocks = parse_time_blocks(raw, self.now)
-        self.assertEqual(len(blocks), 1)
-        self.assertTrue(blocks[0].daily)
-
     def test_start_greater_than_end_daily(self):
         """If daily=True and start time is later than end time, it implies crossing midnight."""
-        raw = [{
-            "start": "25.10.2023 15:00",
-            "end": "25.10.2023 14:00",
-            "daily": True
-        }]
-        blocks = parse_time_blocks(raw, self.now)
+        raw = [TimeBlock("25.10.2023 15:00", "25.10.2023 14:00", daily=True)]
+        blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, -1260)
         self.assertEqual(blocks[0].end, 120)
         self.assertTrue(blocks[0].daily)
 
-    def test_start_greater_than_end_non_daily(self):
-        """If daily=False and start > end, TimeBlock initialization will raise ValueError."""
-        raw = [{
-            "start": "25.10.2023 15:00",
-            "end": "25.10.2023 14:00",
-            "daily": False
-        }]
-        with self.assertRaises(ValueError) as context:
-            parse_time_blocks(raw, self.now)
-        self.assertIn("Start time must be less than end time", str(context.exception))
-
     def test_invalid_date_format(self):
         """Should raise ValueError when the date format is invalid."""
-        raw = [{
-            "start": "2023/10/25 13-00",
-            "end": "2023/10/25 14-00",
-            "daily": True
-        }]
+        raw = [TimeBlock("2023/10/25 13-00", "2023/10/25 14-00", daily=True)]
         with self.assertRaises(ValueError):
-            parse_time_blocks(raw, self.now)
+            process_time_blocks(raw, self.now)
 
 if __name__ == '__main__':
     unittest.main()

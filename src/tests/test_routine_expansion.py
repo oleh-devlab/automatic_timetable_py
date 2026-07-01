@@ -76,7 +76,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         days = [r["day"] for r in routine_info]
         # Mon=06.07, Fri=10.07, next Mon=13.07
         for info in routine_info:
-            parsed = datetime.strptime(info["day"], "%d.%m.%Y")
+            parsed = info["day"]
             self.assertIn(parsed.weekday(), [0, 4],
                           f"Routine on {info['day']} is weekday {parsed.weekday()}, expected Mon(0) or Fri(4)")
 
@@ -181,9 +181,8 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         extra_tasks, _, routine_info = expand_routines([routine], now, horizon)
 
         for info in routine_info:
-            parsed = datetime.strptime(info["day"], "%d.%m.%Y")
-            self.assertEqual(parsed.weekday(), 5,
-                             f"Routine on {info['day']} is weekday {parsed.weekday()}, expected Sat(5)")
+            self.assertEqual(info["day"].weekday(), 5,
+                             f"Routine on {info['day']} is weekday {info['day'].weekday()}, expected Sat(5)")
 
     def test_task_name_contains_date(self):
         """Each generated task name should contain the day.month suffix."""
