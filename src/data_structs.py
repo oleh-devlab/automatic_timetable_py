@@ -15,6 +15,8 @@ class Task:
         self.max_chunk_duration = max_chunk_duration
         self.break_duration = break_duration
         
+        self.start_min = 0
+        
         self.start_var = None
         self.end_var = None
         self.interval_var = None
@@ -30,3 +32,17 @@ class TimeBlock:
         self.start = start
         self.end = end
         self.daily = daily
+
+class Routine:
+    def __init__(self, name, routine_type, repeat, duration,
+                 time=None, deadline_time=None, weekdays=None,
+                 priority=0, break_duration=0):
+        self.name = name
+        self.type = routine_type        # "fixed" | "flexible"
+        self.repeat = repeat            # "daily" | "weekly"
+        self.duration = duration
+        self.time = time                # "HH:MM" for fixed
+        self.deadline_time = deadline_time  # "HH:MM" for flexible
+        self.weekdays = weekdays        # [0..6] for weekly
+        self.priority = priority
+        self.break_duration = break_duration

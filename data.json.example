@@ -16,5 +16,24 @@
       "end": "01.11.2023 15:30",
       "daily": true
     }
+  ],
+  "routines": [
+    {
+      "name": "",
+      "type": "flexible",
+      "repeat": "daily",
+      "deadline_time": "18:00",
+      "duration": 30,
+      "priority": 5,
+      "break_duration": 5
+    },
+    {
+      "name": "",
+      "type": "flexible",
+      "repeat": "weekly",
+      "weekdays": [5],
+      "duration": 90,
+      "priority": 3
+    }
   ]
 }

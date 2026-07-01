@@ -36,7 +36,7 @@ class TestDataRead(unittest.TestCase):
         mock_file_content = json.dumps(mock_json_data)
         
         with patch("builtins.open", mock_open(read_data=mock_file_content)):
-            user_tasks, time_blocks_raw = load_data("dummy_path.json")
+            user_tasks, time_blocks_raw, routines = load_data("dummy_path.json")
             
             # Check user_tasks
             self.assertEqual(len(user_tasks), 2)

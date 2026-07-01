@@ -75,11 +75,13 @@ def calculate_task_weight(task, priority_threshold=10):
         return 10_000 + (days_inverted * 10) + task.priority
 
 
-def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=10):
+def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=10, horizon=None):
     model = cp_model.CpModel()
 
     # Data preparation and calculation of constraints
-    horizon = calculate_horizon(user_tasks, max_horizon_days)
+    if horizon is None:
+        horizon = calculate_horizon(user_tasks, max_horizon_days)
+    
     blocked_time_intervals = generate_blocked_intervals(time_blocks, horizon)
 
     # Create variables for blocked periods (fixed intervals)
@@ -109,8 +111,8 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
             for c in range(max_chunks):
                 chunk = {}
-                chunk['start_var'] = model.new_int_var(0, horizon, f'start_{i}_chunk_{c}')
-                chunk['end_var'] = model.new_int_var(0, horizon, f'end_{i}_chunk_{c}')
+                chunk['start_var'] = model.new_int_var(task.start_min, horizon, f'start_{i}_chunk_{c}')
+                chunk['end_var'] = model.new_int_var(task.start_min, horizon, f'end_{i}_chunk_{c}')
                 chunk['size_var'] = model.new_int_var(
                     0,
                     task.max_chunk_duration,
@@ -172,8 +174,8 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
             task.end_var = task.chunks[-1]['end_var']
             
         else:
-            task.start_var = model.new_int_var(0, horizon, f'start_{i}')
-            task.end_var = model.new_int_var(0, horizon, f'end_{i}')
+            task.start_var = model.new_int_var(task.start_min, horizon, f'start_{i}')
+            task.end_var = model.new_int_var(task.start_min, horizon, f'end_{i}')
             task.presence_var = model.new_bool_var(f'presence_{i}')
             task.interval_var = model.new_optional_interval_var(
                 task.start_var, task.duration, task.end_var,

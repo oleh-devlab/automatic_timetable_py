@@ -32,6 +32,12 @@ Tasks can have a `priority` (integer, default `0`). The solver uses a **2-Tier s
 2. **Inside a Tier (Deadlines vs. Priorities):** Within the same tier, tasks are prioritized by their deadlines. A task due "today" has a much higher weight than a task due "next week", regardless of their priority values. Priority acts as a tiebreaker for tasks with deadlines on the same day, and as the main sorter for tasks without deadlines.
 3. **The Knapsack Phenomenon (Soft Priority):** Because CP-SAT is a global optimizer, it maximizes the *total sum of weights*. This means that if it's forced to choose between scheduling **ONE** urgent task (e.g., 2 hours long) OR **THREE** less urgent tasks (e.g., 40 mins each) from the same tier, it will often choose to do the three tasks. This "soft priority" behavior ensures maximum productivity, rather than leaving giant holes in your schedule just to squeeze in one specific task. If a task is truly a life-and-death matter, simply give it a priority of 10 or higher to move it to the High Tier.
 
+### 4. Routines
+Routines are recurring tasks that should be performed regularly (daily or weekly). Instead of creating them manually for every day, you define them once in the `"routines"` section of your `data.json`.
+There are two types of routines:
+- **Fixed-time routines**: Tied to a specific `time` (e.g., training every day at 07:00). These act like blocked intervals but represent tasks.
+- **Flexible routines**: These behave like normal tasks with a `duration`, `priority`, and an optional `deadline_time` (e.g., study words before 18:00). The solver will find the optimal time for them within each day. Flexible routines do not support Pomodoro chunking (they are scheduled as a single block), but they do support `break_duration`.
+
 ## Usage
 
 To run the main application, use the following command from the root directory of the project:
