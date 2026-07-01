@@ -1,6 +1,6 @@
 import unittest
 
-from data_structs import Task, TimeBlock
+from src.data_structs import Task, TimeBlock
 from tests.solver_test_utils import BaseSolverTest
 
 
@@ -253,7 +253,7 @@ class TestSolver(BaseSolverTest):
 
     def test_empty_tasks_and_blocks(self):
         """0 tasks, 0 blocks -> model trivially solves without crashing."""
-        solver = self._solve([], [])
+        self._solve([], [])
         # The invariants are automatically checked inside _solve and should pass.
 
     def test_exact_fit_no_margin(self):
@@ -321,7 +321,7 @@ class TestSolver(BaseSolverTest):
           2. ALL of its chunks are also successfully zeroed out
              (presence_var == False, size_var == 0) to prevent phantom intervals.
         """
-        from data_structs import TimeBlock
+        from src.data_structs import TimeBlock
 
         # Block almost everything, leave only 10 minutes free
         time_blocks = [TimeBlock(start=10, end=30000, daily=False)]

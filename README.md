@@ -40,25 +40,28 @@ There are two types of routines:
 - **Fixed-time routines**: Tied to a specific `time` (e.g., training every day at 07:00). These act like blocked intervals but represent tasks.
 - **Flexible routines**: These behave like normal tasks with a `duration`, `priority`, and an optional `deadline_time` (e.g., study words before 18:00). The solver will find the optimal time for them within each day. Flexible routines do not support Pomodoro chunking (they are scheduled as a single block), but they do support `break_duration`.
 
+## Project Structure
+
+```text
+automatic_timetable_py/
+├── src/         # Core scheduling API library
+├── tests/       # Unit tests
+├── main.py      # Example consumer script running the API
+└── data.json    # User data (tasks, time blocks, routines)
+```
+
 ## Usage
 
 To run the main application, use the following command from the root directory of the project:
 
 ```bash
-python src/main.py
+python main.py
 ```
 
 ## Testing
 
-To run all unit tests, navigate to the `src` directory and use the `unittest discover` command:
+To run all unit tests, use the `unittest discover` command from the root directory:
 
 ```bash
-cd src
 python -m unittest discover
-```
-
-Alternatively, you can run the tests directly from the root directory:
-
-```bash
-python -m unittest discover src
 ```

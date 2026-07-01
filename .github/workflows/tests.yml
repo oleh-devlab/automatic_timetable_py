@@ -28,6 +28,5 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run unittest discover
-        working-directory: ./src
         run: |
           python -m unittest discover

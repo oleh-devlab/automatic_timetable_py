@@ -1,8 +1,8 @@
 import unittest
 from datetime import datetime
 
-from data_structs import Routine
-from routine_expansion import expand_routines
+from src.data_structs import Routine
+from src.routine_expansion import expand_routines
 
 
 class TestExpandRoutinesFixed(unittest.TestCase):

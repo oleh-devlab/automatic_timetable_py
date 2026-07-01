@@ -2,11 +2,9 @@ import time
 import os
 from datetime import datetime, timedelta
 
-import data_read as data_read
-
 start_import_time = time.perf_counter()
-from scheduler import Scheduler  # noqa: E402
-
+import src.data_read as data_read  # noqa: E402
+from src.scheduler import Scheduler  # noqa: E402
 end_import_time = time.perf_counter()
 
 
@@ -18,7 +16,7 @@ def main():
     )
     start_time_creating = time.perf_counter()
 
-    data_path = os.path.join(os.path.dirname(__file__), "../data.json")
+    data_path = os.path.join(os.path.dirname(__file__), "data.json")
     user_tasks, time_blocks, routines = data_read.load_data(data_path)
 
     scheduler = Scheduler(max_horizon_days=14, priority_threshold=10)

@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from data_structs import TimeBlock
+from .data_structs import TimeBlock
 
 
 def merge_time_blocks(time_blocks):

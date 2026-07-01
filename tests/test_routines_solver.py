@@ -3,9 +3,9 @@ from datetime import datetime
 
 from ortools.sat.python import cp_model
 
-from data_structs import Task, TimeBlock, Routine
-from restrictions import create_model, calculate_horizon
-from routine_expansion import expand_routines
+from src.data_structs import Task, TimeBlock, Routine
+from src.restrictions import create_model, calculate_horizon
+from src.routine_expansion import expand_routines
 from tests.solver_test_utils import BaseSolverTest
 
 

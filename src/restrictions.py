@@ -1,8 +1,8 @@
 from ortools.sat.python import cp_model
 
-from utils import merge_time_blocks
-from chunking import calculate_chunks
-from data_structs import TimeBlock
+from .utils import merge_time_blocks
+from .chunking import calculate_chunks
+from .data_structs import TimeBlock
 
 
 def calculate_horizon(user_tasks, max_horizon_days=14):

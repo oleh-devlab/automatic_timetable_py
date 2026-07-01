@@ -1,5 +1,5 @@
 import unittest
-from chunking import calculate_chunks
+from src.chunking import calculate_chunks
 
 
 class TestCalculateChunks(unittest.TestCase):

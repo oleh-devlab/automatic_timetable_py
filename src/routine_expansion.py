@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from data_structs import Task, TimeBlock
+from .data_structs import Task, TimeBlock
 
 
 def expand_routines(routines, now, horizon_minutes):

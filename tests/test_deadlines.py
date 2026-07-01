@@ -1,6 +1,6 @@
 import unittest
 
-from data_structs import Task, TimeBlock
+from src.data_structs import Task, TimeBlock
 from tests.solver_test_utils import BaseSolverTest
 
 

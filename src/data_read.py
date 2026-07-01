@@ -1,5 +1,5 @@
 import json
-from data_structs import Task, TimeBlock, Routine
+from .data_structs import Task, TimeBlock, Routine
 
 
 def load_data(filepath):

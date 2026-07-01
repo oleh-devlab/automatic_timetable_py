@@ -1,7 +1,7 @@
 import unittest
 
-from restrictions import calculate_horizon, generate_blocked_intervals
-from data_structs import Task, TimeBlock
+from src.restrictions import calculate_horizon, generate_blocked_intervals
+from src.data_structs import Task, TimeBlock
 
 
 class TestCalculateHorizon(unittest.TestCase):

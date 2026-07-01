@@ -1,7 +1,7 @@
 import unittest
 
-from restrictions import calculate_task_weight
-from data_structs import Task
+from src.restrictions import calculate_task_weight
+from src.data_structs import Task
 
 
 class TestCalculateTaskWeight(unittest.TestCase):

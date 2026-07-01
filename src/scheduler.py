@@ -2,10 +2,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, date
 from ortools.sat.python import cp_model
 
-from restrictions import create_model, calculate_horizon
-from data_structs import Task, TimeBlock, Routine
-from utils import process_time_blocks, minutes_to_time
-from routine_expansion import expand_routines
+from .restrictions import create_model, calculate_horizon
+from .data_structs import Task, TimeBlock, Routine
+from .utils import process_time_blocks, minutes_to_time
+from .routine_expansion import expand_routines
 
 
 @dataclass
@@ -83,8 +83,17 @@ class Scheduler:
     def add_routine(self, routine: Routine):
         self.routines.append(routine)
 
-    def solve(self, start_time: datetime | None = None, timeout_seconds: float = 0.5) -> ScheduleResult:
+    def solve(
+        self,
+        start_time: datetime | None = None,
+        timeout_seconds: float = 0.5,
+        max_horizon_days: int | None = None,
+        priority_threshold: int | None = None
+    ) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
+        
+        actual_horizon_days = max_horizon_days if max_horizon_days is not None else self.max_horizon_days
+        actual_priority_threshold = priority_threshold if priority_threshold is not None else self.priority_threshold
 
         # Process deadlines for tasks
         for task in self.tasks:
@@ -98,7 +107,7 @@ class Scheduler:
         processed_blocks = process_time_blocks(self.time_blocks, now)
 
         # Calculate horizon
-        horizon = calculate_horizon(self.tasks, max_horizon_days=self.max_horizon_days)
+        horizon = calculate_horizon(self.tasks, max_horizon_days=actual_horizon_days)
 
         # Expand routines
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon)
@@ -111,8 +120,8 @@ class Scheduler:
         model = create_model(
             combined_tasks,
             combined_blocks,
-            max_horizon_days=self.max_horizon_days,
-            priority_threshold=self.priority_threshold,
+            max_horizon_days=actual_horizon_days,
+            priority_threshold=actual_priority_threshold,
             horizon=horizon,
         )
 

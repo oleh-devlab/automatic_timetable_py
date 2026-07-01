@@ -1,6 +1,6 @@
 import unittest
 from ortools.sat.python import cp_model
-from restrictions import create_model
+from src.restrictions import create_model
 
 
 class BaseSolverTest(unittest.TestCase):
@@ -29,7 +29,7 @@ class BaseSolverTest(unittest.TestCase):
         return solver
 
     def _assert_invariants(self, solver, tasks, time_blocks):
-        from restrictions import calculate_horizon, generate_blocked_intervals
+        from src.restrictions import calculate_horizon, generate_blocked_intervals
 
         horizon = calculate_horizon(tasks)
 

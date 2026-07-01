@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, mock_open
 import json
 
-from data_read import load_data
+from src.data_read import load_data
 
 
 class TestDataReadRoutines(unittest.TestCase):

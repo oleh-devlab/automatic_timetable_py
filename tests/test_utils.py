@@ -1,8 +1,8 @@
 import unittest
 from datetime import datetime, timedelta
 
-from utils import merge_time_blocks, minutes_to_time, process_time_blocks
-from data_structs import TimeBlock
+from src.utils import merge_time_blocks, minutes_to_time, process_time_blocks
+from src.data_structs import TimeBlock
 
 
 class TestMergeTimeBlocks(unittest.TestCase):
