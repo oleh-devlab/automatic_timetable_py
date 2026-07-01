@@ -17,8 +17,8 @@ def load_data(filepath):
         ) 
         for t in data.get("user_tasks", [])
     ]
-    time_blocks_raw = [
-        {"start": b["start"], "end": b["end"], "daily": b.get("daily", True)}
+    time_blocks = [
+        TimeBlock(start=b["start"], end=b["end"], daily=b.get("daily", True))
         for b in data.get("time_blocks", [])
     ]
     
@@ -37,4 +37,4 @@ def load_data(filepath):
         for r in data.get("routines", [])
     ]
     
-    return user_tasks, time_blocks_raw, routines
+    return user_tasks, time_blocks, routines

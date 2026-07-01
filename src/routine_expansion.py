@@ -46,7 +46,7 @@ def expand_routines(routines, now, horizon_minutes):
                     extra_blocks.append(TimeBlock(start_min, end_min, daily=False))
                     routine_info.append({
                         "name": routine.name,
-                        "day": current_date.strftime("%d.%m.%Y"),
+                        "day": current_date,
                         "time": routine.time,
                         "type": "fixed",
                         "duration": routine.duration
@@ -84,8 +84,8 @@ def expand_routines(routines, now, horizon_minutes):
                     extra_tasks.append(t)
                     routine_info.append({
                         "name": routine.name,
-                        "day": current_date.strftime("%d.%m.%Y"),
-                        "deadline": deadline_dt.strftime("%H:%M"),
+                        "day": current_date,
+                        "deadline": deadline_dt,
                         "type": "flexible",
                         "duration": routine.duration
                     })

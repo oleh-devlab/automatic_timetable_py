@@ -20,18 +20,18 @@ def merge_time_blocks(time_blocks):
 
 
 def minutes_to_time(minutes_from_now, now):
-    """Convert minutes from `now` to a 'DD.MM.YYYY HH:MM' datetime string."""
-    return (now + timedelta(minutes=minutes_from_now)).strftime('%d.%m.%Y %H:%M')
+    """Convert minutes from `now` to a datetime object."""
+    return now + timedelta(minutes=minutes_from_now)
 
 
-def parse_time_blocks(time_blocks_raw, now):
-    """Parse time blocks containing full datetimes into TimeBlock objects."""
-    time_blocks = []
-    for b in time_blocks_raw:
-        daily = b.get("daily", True)
+def process_time_blocks(time_blocks, now):
+    """Process TimeBlock objects, converting string times into minute offsets."""
+    processed_blocks = []
+    for b in time_blocks:
+        daily = b.daily
         
-        dt_start = datetime.strptime(b["start"], "%d.%m.%Y %H:%M")
-        dt_end = datetime.strptime(b["end"], "%d.%m.%Y %H:%M")
+        dt_start = datetime.strptime(b.start_str, "%d.%m.%Y %H:%M")
+        dt_end = datetime.strptime(b.end_str, "%d.%m.%Y %H:%M")
         
         if daily:
             s = dt_start.hour * 60 + dt_start.minute
@@ -42,28 +42,29 @@ def parse_time_blocks(time_blocks_raw, now):
                 
             now_min = now.hour * 60 + now.minute
             
-            # Find the first daily occurrence that hasn't completely passed yet
             start_min, end_min = 0, 0
             for k in [-1, 0, 1]:
                 start_rel = s + k * 1440 - now_min
                 end_rel = e + k * 1440 - now_min
                 
                 if end_rel > 0:
-                    # Do NOT clamp start_rel to 0 here! We need the true offset for accurate cloning.
-                    # Clamping will happen when generating variables for the solver.
                     start_min = int(start_rel)
                     end_min = int(end_rel)
                     break
                     
-            time_blocks.append(TimeBlock(start_min, end_min, daily=True))
+            new_block = TimeBlock(b.start_str, b.end_str, daily=True)
+            new_block.start = start_min
+            new_block.end = end_min
+            processed_blocks.append(new_block)
             
         else:
-            # Absolute interval
             start_min = (dt_start - now).total_seconds() / 60
             end_min = (dt_end - now).total_seconds() / 60
             
             if end_min > 0:
-                # Same here, do not clamp start_min to 0.
-                time_blocks.append(TimeBlock(int(start_min), int(end_min), daily=False))
+                new_block = TimeBlock(b.start_str, b.end_str, daily=False)
+                new_block.start = int(start_min)
+                new_block.end = int(end_min)
+                processed_blocks.append(new_block)
                 
-    return time_blocks
+    return processed_blocks

@@ -26,11 +26,16 @@ class Task:
 
 class TimeBlock:
     def __init__(self, start, end, daily=True):
-        if start >= end:
-            raise ValueError("Start time must be less than end time.")
-
-        self.start = start
-        self.end = end
+        if isinstance(start, int) and isinstance(end, int):
+            self.start_str = None
+            self.end_str = None
+            self.start = start
+            self.end = end
+        else:
+            self.start_str = start
+            self.end_str = end
+            self.start = None
+            self.end = None
         self.daily = daily
 
 class Routine:
