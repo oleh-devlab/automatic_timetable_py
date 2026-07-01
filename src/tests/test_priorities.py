@@ -25,10 +25,8 @@ class TestPriorities(BaseSolverTest):
 
         solver = self._solve([high, low], time_blocks=time_blocks)
 
-        self.assertTrue(solver.value(high.presence_var),
-                        "High Tier task must be scheduled")
-        self.assertFalse(solver.value(low.presence_var),
-                         "Low Tier task must be dropped")
+        self.assertTrue(solver.value(high.presence_var), "High Tier task must be scheduled")
+        self.assertFalse(solver.value(low.presence_var), "Low Tier task must be dropped")
 
     def test_high_tier_beats_multiple_low_tier(self):
         """
@@ -39,10 +37,7 @@ class TestPriorities(BaseSolverTest):
         high = Task(name="uni_hw", duration=60, priority=10, break_duration=0)
         high.deadline_min = None
 
-        lows = [
-            Task(name=f"personal_{i}", duration=20, priority=9, break_duration=0)
-            for i in range(3)
-        ]
+        lows = [Task(name=f"personal_{i}", duration=20, priority=9, break_duration=0) for i in range(3)]
         for t in lows:
             t.deadline_min = 60  # urgent!
 
@@ -50,11 +45,9 @@ class TestPriorities(BaseSolverTest):
 
         solver = self._solve([high] + lows, time_blocks=time_blocks)
 
-        self.assertTrue(solver.value(high.presence_var),
-                        "High Tier task must be scheduled over all Low Tier")
+        self.assertTrue(solver.value(high.presence_var), "High Tier task must be scheduled over all Low Tier")
         for t in lows:
-            self.assertFalse(solver.value(t.presence_var),
-                             f"Low Tier task '{t.name}' must be dropped")
+            self.assertFalse(solver.value(t.presence_var), f"Low Tier task '{t.name}' must be dropped")
 
     # --- Within a tier (deadline dominance) ---
 
@@ -73,8 +66,7 @@ class TestPriorities(BaseSolverTest):
 
         solver = self._solve([task_close, task_far], time_blocks=time_blocks)
 
-        self.assertTrue(solver.value(task_close.presence_var),
-                        "Closer deadline should win in 1-on-1")
+        self.assertTrue(solver.value(task_close.presence_var), "Closer deadline should win in 1-on-1")
         self.assertFalse(solver.value(task_far.presence_var))
 
     def test_priority_tiebreaker_same_deadline(self):
@@ -91,8 +83,7 @@ class TestPriorities(BaseSolverTest):
 
         solver = self._solve([task_high_p, task_low_p], time_blocks=time_blocks)
 
-        self.assertTrue(solver.value(task_high_p.presence_var),
-                        "Higher priority should win as tiebreaker")
+        self.assertTrue(solver.value(task_high_p.presence_var), "Higher priority should win as tiebreaker")
         self.assertFalse(solver.value(task_low_p.presence_var))
 
     def test_knapsack_phenomenon_within_tier(self):
@@ -105,23 +96,20 @@ class TestPriorities(BaseSolverTest):
         # 60 min free slot
         urgent_task = Task(name="urgent_but_long", duration=60, priority=2, break_duration=0)
         urgent_task.deadline_min = 100  # very close deadline
-        
-        non_urgent_tasks = [
-            Task(name=f"non_urgent_{i}", duration=20, priority=9, break_duration=0)
-            for i in range(3)
-        ]
+
+        non_urgent_tasks = [Task(name=f"non_urgent_{i}", duration=20, priority=9, break_duration=0) for i in range(3)]
         for t in non_urgent_tasks:
             t.deadline_min = 1440 * 7  # 1 week away
-            
+
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
-        
+
         solver = self._solve([urgent_task] + non_urgent_tasks, time_blocks=time_blocks)
-        
-        self.assertFalse(solver.value(urgent_task.presence_var),
-                         "The single urgent task should be dropped due to knapsack behavior")
+
+        self.assertFalse(
+            solver.value(urgent_task.presence_var), "The single urgent task should be dropped due to knapsack behavior"
+        )
         for t in non_urgent_tasks:
-            self.assertTrue(solver.value(t.presence_var),
-                            f"The smaller non-urgent task '{t.name}' should be scheduled")
+            self.assertTrue(solver.value(t.presence_var), f"The smaller non-urgent task '{t.name}' should be scheduled")
 
     # --- No conflict: all tasks fit ---
 
@@ -153,5 +141,5 @@ class TestPriorities(BaseSolverTest):
         self.assertTrue(solver.value(task.presence_var))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

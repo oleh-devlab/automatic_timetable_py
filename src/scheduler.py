@@ -7,11 +7,13 @@ from data_structs import Task, TimeBlock, Routine
 from utils import process_time_blocks, minutes_to_time
 from routine_expansion import expand_routines
 
+
 @dataclass
 class ScheduledChunk:
     start_time: datetime
     end_time: datetime
     duration: int
+
 
 @dataclass
 class ScheduledTask:
@@ -20,11 +22,13 @@ class ScheduledTask:
     end_time: datetime
     chunks: list[ScheduledChunk] = field(default_factory=list)
 
+
 @dataclass
 class ScheduledRoutine:
     task: Task
     start_time: datetime
     end_time: datetime
+
 
 @dataclass
 class FixedRoutine:
@@ -33,6 +37,7 @@ class FixedRoutine:
     time: str
     duration: int
 
+
 @dataclass
 class FlexibleRoutineInfo:
     name: str
@@ -40,9 +45,11 @@ class FlexibleRoutineInfo:
     deadline: datetime
     duration: int
 
+
 @dataclass
 class SkippedTask:
     task: Task
+
 
 class ScheduleResult:
     def __init__(self, status_name: str):
@@ -52,74 +59,76 @@ class ScheduleResult:
         self.scheduled_routines: list[ScheduledRoutine] = []
         self.fixed_routines: list[FixedRoutine] = []
         self.flexible_routines_info: list[FlexibleRoutineInfo] = []
-        
+
     @property
     def is_successful(self):
-        return self.status in ('OPTIMAL', 'FEASIBLE')
+        return self.status in ("OPTIMAL", "FEASIBLE")
+
 
 class Scheduler:
     def __init__(self, max_horizon_days: int = 14, priority_threshold: int = 10):
         self.max_horizon_days = max_horizon_days
         self.priority_threshold = priority_threshold
-        
+
         self.tasks: list[Task] = []
         self.time_blocks: list[TimeBlock] = []
         self.routines: list[Routine] = []
-        
+
     def add_task(self, task: Task):
         self.tasks.append(task)
-        
+
     def add_time_block(self, time_block: TimeBlock):
         self.time_blocks.append(time_block)
-        
+
     def add_routine(self, routine: Routine):
         self.routines.append(routine)
-        
+
     def solve(self, start_time: datetime | None = None, timeout_seconds: float = 0.5) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
-        
+
         # Process deadlines for tasks
         for task in self.tasks:
-            if getattr(task, 'deadline', None) is not None:
+            if getattr(task, "deadline", None) is not None:
                 dt_deadline = datetime.strptime(task.deadline, "%d.%m.%Y %H:%M")
                 task.deadline_min = int((dt_deadline - now).total_seconds() / 60)
             else:
                 task.deadline_min = None
-                
-        # Process time blocks 
+
+        # Process time blocks
         processed_blocks = process_time_blocks(self.time_blocks, now)
-        
+
         # Calculate horizon
         horizon = calculate_horizon(self.tasks, max_horizon_days=self.max_horizon_days)
-        
+
         # Expand routines
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon)
-        
+
         # Combine base and extra data
         combined_tasks = self.tasks + extra_tasks
         combined_blocks = processed_blocks + extra_blocks
-        
+
         # Create model
         model = create_model(
-            combined_tasks, 
-            combined_blocks, 
-            max_horizon_days=self.max_horizon_days, 
-            priority_threshold=self.priority_threshold, 
-            horizon=horizon
+            combined_tasks,
+            combined_blocks,
+            max_horizon_days=self.max_horizon_days,
+            priority_threshold=self.priority_threshold,
+            horizon=horizon,
         )
-        
+
         # Solve
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = timeout_seconds
-        
+
         status = solver.solve(model)
-        
+
         # Parse results
         result = ScheduleResult(
-            status_name='OPTIMAL' if status == cp_model.OPTIMAL else 
-                        'FEASIBLE' if status == cp_model.FEASIBLE else 'INFEASIBLE'
+            status_name=(
+                "OPTIMAL" if status == cp_model.OPTIMAL else "FEASIBLE" if status == cp_model.FEASIBLE else "INFEASIBLE"
+            )
         )
-        
+
         if result.is_successful:
             for task in combined_tasks:
                 if solver.value(task.presence_var):
@@ -127,28 +136,30 @@ class Scheduler:
                     end_val = solver.value(task.end_var)
                     start_time_str = minutes_to_time(start_val, now)
                     end_time_str = minutes_to_time(end_val, now)
-                    
-                    if getattr(task, 'is_routine', False):
+
+                    if getattr(task, "is_routine", False):
                         result.scheduled_routines.append(ScheduledRoutine(task, start_time_str, end_time_str))
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
                         if task.chunks:
                             for chunk in task.chunks:
-                                if solver.value(chunk['presence_var']):
-                                    cs = minutes_to_time(solver.value(chunk['start_var']), now)
-                                    ce = minutes_to_time(solver.value(chunk['end_var']), now)
-                                    csize = solver.value(chunk['size_var'])
+                                if solver.value(chunk["presence_var"]):
+                                    cs = minutes_to_time(solver.value(chunk["start_var"]), now)
+                                    ce = minutes_to_time(solver.value(chunk["end_var"]), now)
+                                    csize = solver.value(chunk["size_var"])
                                     scheduled_task.chunks.append(ScheduledChunk(cs, ce, csize))
                         result.scheduled_tasks.append(scheduled_task)
                 else:
-                    if not getattr(task, 'is_routine', False):
+                    if not getattr(task, "is_routine", False):
                         result.skipped_tasks.append(SkippedTask(task))
-            
+
             if routine_info:
                 for r in routine_info:
-                    if r['type'] == 'fixed':
-                        result.fixed_routines.append(FixedRoutine(r['name'], r['day'], r['time'], r['duration']))
-                    elif r['type'] == 'flexible':
-                        result.flexible_routines_info.append(FlexibleRoutineInfo(r['name'], r['day'], r['deadline'], r['duration']))
-                        
+                    if r["type"] == "fixed":
+                        result.fixed_routines.append(FixedRoutine(r["name"], r["day"], r["time"], r["duration"]))
+                    elif r["type"] == "flexible":
+                        result.flexible_routines_info.append(
+                            FlexibleRoutineInfo(r["name"], r["day"], r["deadline"], r["duration"])
+                        )
+
         return result

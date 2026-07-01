@@ -17,8 +17,7 @@ class TestDeadlines(BaseSolverTest):
 
         solver = self._solve([task])
 
-        self.assertTrue(solver.value(task.presence_var),
-                        "Task should be scheduled when deadline is generous")
+        self.assertTrue(solver.value(task.presence_var), "Task should be scheduled when deadline is generous")
         self.assertLessEqual(solver.value(task.end_var), 500)
 
     def test_impossible_deadline_drops_task(self):
@@ -34,8 +33,7 @@ class TestDeadlines(BaseSolverTest):
 
         solver = self._solve([task], time_blocks=time_blocks)
 
-        self.assertFalse(solver.value(task.presence_var),
-                         "Task should be dropped — not enough time before deadline")
+        self.assertFalse(solver.value(task.presence_var), "Task should be dropped — not enough time before deadline")
 
     def test_deadline_exact_fit(self):
         """
@@ -50,8 +48,7 @@ class TestDeadlines(BaseSolverTest):
 
         solver = self._solve([task], time_blocks=time_blocks)
 
-        self.assertTrue(solver.value(task.presence_var),
-                        "Task fits exactly before deadline")
+        self.assertTrue(solver.value(task.presence_var), "Task fits exactly before deadline")
         self.assertEqual(solver.value(task.start_var), 0)
         self.assertEqual(solver.value(task.end_var), 60)
 
@@ -61,11 +58,7 @@ class TestDeadlines(BaseSolverTest):
         before the deadline.
         """
         task = Task(
-            name="chunked_deadline",
-            duration=100,
-            min_chunk_duration=20,
-            max_chunk_duration=40,
-            break_duration=5
+            name="chunked_deadline", duration=100, min_chunk_duration=20, max_chunk_duration=40, break_duration=5
         )
         task.deadline_min = 500
 
@@ -79,24 +72,17 @@ class TestDeadlines(BaseSolverTest):
         """
         A chunked task that cannot fit all its chunks (with breaks)
         before the deadline should be entirely dropped.
-        
+
         100 min task, chunks 20-40 min, breaks 5 min.
         Minimum time needed: e.g. 3 chunks (40+40+20) + 2 breaks (5+5) = 110 min.
         Deadline at 30 min makes it impossible.
         """
-        task = Task(
-            name="chunked_no_fit",
-            duration=100,
-            min_chunk_duration=20,
-            max_chunk_duration=40,
-            break_duration=5
-        )
+        task = Task(name="chunked_no_fit", duration=100, min_chunk_duration=20, max_chunk_duration=40, break_duration=5)
         task.deadline_min = 30
 
         solver = self._solve([task])
 
-        self.assertFalse(solver.value(task.presence_var),
-                         "Chunked task should be dropped when deadline is too tight")
+        self.assertFalse(solver.value(task.presence_var), "Chunked task should be dropped when deadline is too tight")
 
     def test_deadline_does_not_affect_other_tasks(self):
         """
@@ -111,10 +97,8 @@ class TestDeadlines(BaseSolverTest):
 
         solver = self._solve([task_deadline, task_free])
 
-        self.assertFalse(solver.value(task_deadline.presence_var),
-                         "Task with impossible deadline should be dropped")
-        self.assertTrue(solver.value(task_free.presence_var),
-                        "Task without deadline should still be scheduled")
+        self.assertFalse(solver.value(task_deadline.presence_var), "Task with impossible deadline should be dropped")
+        self.assertTrue(solver.value(task_free.presence_var), "Task without deadline should still be scheduled")
 
     def test_deadline_pushes_task_earlier(self):
         """
@@ -185,9 +169,8 @@ class TestDeadlines(BaseSolverTest):
         b_present = solver.value(task_b.presence_var)
 
         # Exactly one should be scheduled
-        self.assertEqual(a_present + b_present, 1,
-                         "Only one of two competing tasks should fit before the deadline")
+        self.assertEqual(a_present + b_present, 1, "Only one of two competing tasks should fit before the deadline")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 import math
 
+
 def calculate_chunks(duration, min_chunk_duration, max_chunk_duration):
     """
     Calculates the maximum number of chunks for the task.

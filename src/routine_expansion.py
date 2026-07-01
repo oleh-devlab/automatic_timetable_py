@@ -1,6 +1,7 @@
 from datetime import timedelta, datetime
 from data_structs import Task, TimeBlock
 
+
 def expand_routines(routines, now, horizon_minutes):
     """
     Expands routines into concrete Tasks and TimeBlocks over the planning horizon.
@@ -34,35 +35,37 @@ def expand_routines(routines, now, horizon_minutes):
             # It's a valid day for this routine
             if routine.type == "fixed":
                 if not routine.time:
-                    continue # Invalid fixed routine
-                
+                    continue  # Invalid fixed routine
+
                 dt_str = f"{current_date.strftime('%Y-%m-%d')} {routine.time}"
                 routine_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
-                
+
                 start_min = int((routine_dt - now).total_seconds() / 60)
                 end_min = start_min + routine.duration
 
                 if end_min > 0 and start_min <= horizon_minutes:
                     extra_blocks.append(TimeBlock(start_min, end_min, daily=False))
-                    routine_info.append({
-                        "name": routine.name,
-                        "day": current_date,
-                        "time": routine.time,
-                        "type": "fixed",
-                        "duration": routine.duration
-                    })
+                    routine_info.append(
+                        {
+                            "name": routine.name,
+                            "day": current_date,
+                            "time": routine.time,
+                            "type": "fixed",
+                            "duration": routine.duration,
+                        }
+                    )
 
             elif routine.type == "flexible":
                 if routine.deadline_time:
                     dt_str = f"{current_date.strftime('%Y-%m-%d')} {routine.deadline_time}"
                 else:
                     dt_str = f"{current_date.strftime('%Y-%m-%d')} 23:59"
-                
+
                 deadline_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
                 deadline_min = int((deadline_dt - now).total_seconds() / 60)
 
                 # Only include if the deadline is in the future
-                # and it's within our horizon 
+                # and it's within our horizon
                 if deadline_min > 0 and deadline_min - routine.duration <= horizon_minutes:
                     # We do NOT use Pomodoro chunking for routines, so we don't set min/max chunk duration.
                     task_name = f"{routine.name} ({current_date.strftime('%d.%m')})"
@@ -71,23 +74,25 @@ def expand_routines(routines, now, horizon_minutes):
                         duration=routine.duration,
                         deadline=deadline_dt.strftime("%d.%m.%Y %H:%M"),
                         priority=routine.priority,
-                        break_duration=routine.break_duration
+                        break_duration=routine.break_duration,
                     )
                     # Pre-calculate deadline_min so solver doesn't have to parse it
                     t.deadline_min = deadline_min
                     t.is_routine = True
-                    
+
                     start_of_day_dt = datetime(current_date.year, current_date.month, current_date.day)
                     start_min = int((start_of_day_dt - now).total_seconds() / 60)
                     t.start_min = max(0, start_min)
-                    
+
                     extra_tasks.append(t)
-                    routine_info.append({
-                        "name": routine.name,
-                        "day": current_date,
-                        "deadline": deadline_dt,
-                        "type": "flexible",
-                        "duration": routine.duration
-                    })
+                    routine_info.append(
+                        {
+                            "name": routine.name,
+                            "day": current_date,
+                            "deadline": deadline_dt,
+                            "type": "flexible",
+                            "duration": routine.duration,
+                        }
+                    )
 
     return extra_tasks, extra_blocks, routine_info
