@@ -29,10 +29,15 @@ def process_time_blocks(time_blocks, now):
     """Process TimeBlock objects, converting string times into minute offsets."""
     processed_blocks = []
     for b in time_blocks:
+        # Ignore blocks that are already processed (ints)
+        if isinstance(b.start, int) and isinstance(b.end, int):
+            processed_blocks.append(b)
+            continue
+            
         daily = b.daily
 
-        dt_start = datetime.strptime(b.start_str, "%d.%m.%Y %H:%M")
-        dt_end = datetime.strptime(b.end_str, "%d.%m.%Y %H:%M")
+        dt_start = b.start
+        dt_end = b.end
 
         if daily:
             s = dt_start.hour * 60 + dt_start.minute
@@ -53,9 +58,7 @@ def process_time_blocks(time_blocks, now):
                     end_min = int(end_rel)
                     break
 
-            new_block = TimeBlock(b.start_str, b.end_str, daily=True)
-            new_block.start = start_min
-            new_block.end = end_min
+            new_block = TimeBlock(start=start_min, end=end_min, daily=True)
             processed_blocks.append(new_block)
 
         else:
@@ -63,9 +66,7 @@ def process_time_blocks(time_blocks, now):
             end_min = (dt_end - now).total_seconds() / 60
 
             if end_min > 0:
-                new_block = TimeBlock(b.start_str, b.end_str, daily=False)
-                new_block.start = int(start_min)
-                new_block.end = int(end_min)
+                new_block = TimeBlock(start=int(start_min), end=int(end_min), daily=False)
                 processed_blocks.append(new_block)
 
     return processed_blocks

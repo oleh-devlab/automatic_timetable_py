@@ -37,8 +37,8 @@ def expand_routines(routines, now, horizon_minutes):
                 if not routine.time:
                     continue  # Invalid fixed routine
 
-                dt_str = f"{current_date.strftime('%Y-%m-%d')} {routine.time}"
-                routine_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+                t_val = routine.time.time() if hasattr(routine.time, "time") else routine.time
+                routine_dt = datetime.combine(current_date, t_val)
 
                 start_min = int((routine_dt - now).total_seconds() / 60)
                 end_min = start_min + routine.duration
@@ -57,11 +57,11 @@ def expand_routines(routines, now, horizon_minutes):
 
             elif routine.type == "flexible":
                 if routine.deadline_time:
-                    dt_str = f"{current_date.strftime('%Y-%m-%d')} {routine.deadline_time}"
+                    t_val = routine.deadline_time.time() if hasattr(routine.deadline_time, "time") else routine.deadline_time
+                    deadline_dt = datetime.combine(current_date, t_val)
                 else:
                     dt_str = f"{current_date.strftime('%Y-%m-%d')} 23:59"
-
-                deadline_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+                    deadline_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
                 deadline_min = int((deadline_dt - now).total_seconds() / 60)
 
                 # Only include if the deadline is in the future
@@ -72,7 +72,7 @@ def expand_routines(routines, now, horizon_minutes):
                     t = Task(
                         name=task_name,
                         duration=routine.duration,
-                        deadline=deadline_dt.strftime("%d.%m.%Y %H:%M"),
+                        deadline=deadline_dt,
                         priority=routine.priority,
                         break_duration=routine.break_duration,
                     )

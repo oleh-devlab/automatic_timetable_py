@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, mock_open
 import json
+from datetime import datetime
 
 from src.data_read import load_data
 
@@ -45,10 +46,10 @@ class TestDataRead(unittest.TestCase):
 
             # Check time_blocks
             self.assertEqual(len(time_blocks), 2)
-            self.assertEqual(time_blocks[0].start_str, "25.10.2023 09:00")
-            self.assertEqual(time_blocks[0].end_str, "25.10.2023 10:00")
+            self.assertEqual(time_blocks[0].start, datetime(2023, 10, 25, 9, 0))
+            self.assertEqual(time_blocks[0].end, datetime(2023, 10, 25, 10, 0))
             self.assertTrue(time_blocks[0].daily)
 
-            self.assertEqual(time_blocks[1].start_str, "25.10.2023 15:00")
-            self.assertEqual(time_blocks[1].end_str, "25.10.2023 16:00")
+            self.assertEqual(time_blocks[1].start, datetime(2023, 10, 25, 15, 0))
+            self.assertEqual(time_blocks[1].end, datetime(2023, 10, 25, 16, 0))
             self.assertTrue(time_blocks[1].daily)

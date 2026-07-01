@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, time
 
 from ortools.sat.python import cp_model
 
@@ -53,7 +53,7 @@ class TestRoutinesSolver(BaseSolverTest):
         A flexible routine must not overlap with existing time blocks.
         We leave only a narrow window and verify the routine fits there.
         """
-        routine = Routine(name="Study", type="flexible", repeat="daily", duration=30, priority=5, deadline_time="23:59")
+        routine = Routine(name="Study", type="flexible", repeat="daily", duration=30, priority=5, deadline_time=time(23, 59))
         # Block everything except [100, 200]
         time_blocks = [TimeBlock(start=0, end=100, daily=False), TimeBlock(start=200, end=30000, daily=False)]
         now = datetime(2026, 7, 6, 10, 0)
@@ -77,7 +77,7 @@ class TestRoutinesSolver(BaseSolverTest):
         A fixed routine creates a TimeBlock. A user task must not be scheduled
         in that blocked slot.
         """
-        routine = Routine(name="Gym", type="fixed", repeat="daily", duration=60, time="11:00")
+        routine = Routine(name="Gym", type="fixed", repeat="daily", duration=60, time=time(11, 0))
         # A task that could fit at 11:00 but shouldn't because the routine blocks it
         task = Task(name="Work", duration=60, break_duration=0)
         task.deadline_min = None
@@ -105,7 +105,7 @@ class TestRoutinesSolver(BaseSolverTest):
         over a low-priority user task.
         """
         routine = Routine(
-            name="Critical", type="flexible", repeat="daily", duration=50, priority=10, deadline_time="23:59"
+            name="Critical", type="flexible", repeat="daily", duration=50, priority=10, deadline_time=time(23, 59)
         )
         low_task = Task(name="Optional", duration=50, priority=1, break_duration=0)
         low_task.deadline_min = None
@@ -131,14 +131,14 @@ class TestRoutinesSolver(BaseSolverTest):
         """
         A mix of fixed and flexible routines plus regular tasks should all solve together.
         """
-        fixed_routine = Routine(name="Gym", type="fixed", repeat="daily", duration=60, time="07:00")
+        fixed_routine = Routine(name="Gym", type="fixed", repeat="daily", duration=60, time=time(7, 0))
         flex_routine = Routine(
             name="Study",
             type="flexible",
             repeat="daily",
             duration=30,
             priority=5,
-            deadline_time="18:00",
+            deadline_time=time(18, 0),
             break_duration=5,
         )
         task = Task(name="Project", duration=120, break_duration=10)
@@ -174,7 +174,7 @@ class TestRoutinesSolver(BaseSolverTest):
             repeat="daily",
             duration=30,
             priority=5,
-            deadline_time="23:59",
+            deadline_time=time(23, 59),
             break_duration=15,
         )
         task = Task(name="Code", duration=30, break_duration=0)
@@ -229,7 +229,7 @@ class TestRoutinesSolver(BaseSolverTest):
         even if there is free time today.
         """
         routine = Routine(
-            name="TomorrowTask", type="flexible", repeat="daily", duration=60, priority=5, deadline_time="23:59"
+            name="TomorrowTask", type="flexible", repeat="daily", duration=60, priority=5, deadline_time=time(23, 59)
         )
 
         # now is 10:00 on Day 0

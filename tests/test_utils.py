@@ -79,7 +79,7 @@ class TestProcessTimeBlocks(unittest.TestCase):
         self.now = datetime(2023, 10, 25, 12, 0)
 
     def test_non_daily_future(self):
-        raw = [TimeBlock("25.10.2023 13:00", "25.10.2023 14:00", daily=False)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 13, 0), datetime(2023, 10, 25, 14, 0), daily=False)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, 60)
@@ -87,19 +87,19 @@ class TestProcessTimeBlocks(unittest.TestCase):
         self.assertFalse(blocks[0].daily)
 
     def test_non_daily_past(self):
-        raw = [TimeBlock("25.10.2023 10:00", "25.10.2023 11:00", daily=False)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 10, 0), datetime(2023, 10, 25, 11, 0), daily=False)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 0)
 
     def test_non_daily_partially_past(self):
-        raw = [TimeBlock("25.10.2023 11:30", "25.10.2023 12:30", daily=False)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 11, 30), datetime(2023, 10, 25, 12, 30), daily=False)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, -30)
         self.assertEqual(blocks[0].end, 30)
 
     def test_daily_future_today(self):
-        raw = [TimeBlock("25.10.2023 14:00", "25.10.2023 15:00", daily=True)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 14, 0), datetime(2023, 10, 25, 15, 0), daily=True)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, 120)
@@ -108,7 +108,7 @@ class TestProcessTimeBlocks(unittest.TestCase):
 
     def test_daily_past_today(self):
         # Passed for today, so it should be scheduled for tomorrow
-        raw = [TimeBlock("25.10.2023 09:00", "25.10.2023 10:00", daily=True)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 9, 0), datetime(2023, 10, 25, 10, 0), daily=True)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         # Tomorrow is 1440 min away.
@@ -121,7 +121,7 @@ class TestProcessTimeBlocks(unittest.TestCase):
 
     def test_daily_partially_past(self):
         # Started at 11:30, ends at 12:30. Now is 12:00.
-        raw = [TimeBlock("25.10.2023 11:30", "25.10.2023 12:30", daily=True)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 11, 30), datetime(2023, 10, 25, 12, 30), daily=True)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, -30)
@@ -130,7 +130,7 @@ class TestProcessTimeBlocks(unittest.TestCase):
 
     def test_daily_crosses_midnight(self):
         # 23:00 to 02:00. Now is 12:00
-        raw = [TimeBlock("25.10.2023 23:00", "26.10.2023 02:00", daily=True)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 23, 0), datetime(2023, 10, 26, 2, 0), daily=True)]
         # s = 23*60 = 1380. e = 2*60 = 120 -> e += 1440 = 1560
         # now_min = 12*60 = 720.
         # start_rel = 1380 - 720 = 660
@@ -143,18 +143,12 @@ class TestProcessTimeBlocks(unittest.TestCase):
 
     def test_start_greater_than_end_daily(self):
         """If daily=True and start time is later than end time, it implies crossing midnight."""
-        raw = [TimeBlock("25.10.2023 15:00", "25.10.2023 14:00", daily=True)]
+        raw = [TimeBlock(datetime(2023, 10, 25, 15, 0), datetime(2023, 10, 25, 14, 0), daily=True)]
         blocks = process_time_blocks(raw, self.now)
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0].start, -1260)
         self.assertEqual(blocks[0].end, 120)
         self.assertTrue(blocks[0].daily)
-
-    def test_invalid_date_format(self):
-        """Should raise ValueError when the date format is invalid."""
-        raw = [TimeBlock("2023/10/25 13-00", "2023/10/25 14-00", daily=True)]
-        with self.assertRaises(ValueError):
-            process_time_blocks(raw, self.now)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, mock_open
 import json
+from datetime import time
 
 from src.data_read import load_data
 
@@ -47,7 +48,7 @@ class TestDataReadRoutines(unittest.TestCase):
             self.assertEqual(routines[0].name, "Workout")
             self.assertEqual(routines[0].type, "fixed")
             self.assertEqual(routines[0].repeat, "daily")
-            self.assertEqual(routines[0].time, "07:00")
+            self.assertEqual(routines[0].time, time(7, 0))
             self.assertEqual(routines[0].duration, 60)
             self.assertEqual(routines[0].priority, 0)  # default
             self.assertEqual(routines[0].break_duration, 0)  # default
@@ -56,7 +57,7 @@ class TestDataReadRoutines(unittest.TestCase):
             self.assertEqual(routines[1].name, "Study")
             self.assertEqual(routines[1].type, "flexible")
             self.assertEqual(routines[1].repeat, "daily")
-            self.assertEqual(routines[1].deadline_time, "18:00")
+            self.assertEqual(routines[1].deadline_time, time(18, 0))
             self.assertEqual(routines[1].duration, 30)
             self.assertEqual(routines[1].priority, 5)
             self.assertEqual(routines[1].break_duration, 5)

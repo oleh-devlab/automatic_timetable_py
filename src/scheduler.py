@@ -98,7 +98,7 @@ class Scheduler:
         # Process deadlines for tasks
         for task in self.tasks:
             if getattr(task, "deadline", None) is not None:
-                dt_deadline = datetime.strptime(task.deadline, "%d.%m.%Y %H:%M")
+                dt_deadline = task.deadline
                 task.deadline_min = int((dt_deadline - now).total_seconds() / 60)
             else:
                 task.deadline_min = None

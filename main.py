@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 start_import_time = time.perf_counter()
 import src.data_read as data_read  # noqa: E402
 from src.scheduler import Scheduler  # noqa: E402
+from src.data_structs import Task, TimeBlock  # noqa: E402
 end_import_time = time.perf_counter()
 
 
@@ -30,6 +31,15 @@ def main():
     for routine in routines:
         scheduler.add_routine(routine)
 
+    # Test programmatic native datetime insertion    
+    dt_now = datetime.now()
+    dt_block_start = dt_now + timedelta(days=1, hours=1)
+    dt_block_end = dt_now + timedelta(days=1, hours=2)
+    dt_task_deadline = dt_now + timedelta(days=2)
+    
+    scheduler.add_time_block(TimeBlock(start=dt_block_start, end=dt_block_end, daily=False))
+    scheduler.add_task(Task(name="Test Native Datetime Task", duration=30, deadline=dt_task_deadline, priority=10))
+
     end_time_creating = time.perf_counter()
     print("Time taken to load and create scheduler: {:.6f} seconds".format(end_time_creating - start_time_creating))
 
@@ -46,8 +56,7 @@ def main():
         events = []
 
         for r in result.fixed_routines:
-            dt_str = f"{r.day.strftime('%Y-%m-%d')} {r.time}"
-            dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+            dt = datetime.combine(r.day, r.time)
             events.append(
                 {
                     "type": "Fixed Routine",

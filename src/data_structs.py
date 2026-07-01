@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Any
+from datetime import datetime, time
 
 
 @dataclass
 class Task:
     name: str
     duration: int
-    deadline: str | None = None
+    deadline: datetime | None = None
     priority: int = 0
     min_chunk_duration: int | None = None
     max_chunk_duration: int | None = None
@@ -33,22 +34,9 @@ class Task:
 
 @dataclass
 class TimeBlock:
-    start: int | str | None
-    end: int | str | None
+    start: int | datetime | None
+    end: int | datetime | None
     daily: bool = True
-
-    start_str: str | None = field(init=False, default=None)
-    end_str: str | None = field(init=False, default=None)
-
-    def __post_init__(self):
-        if isinstance(self.start, int) and isinstance(self.end, int):
-            self.start_str = None
-            self.end_str = None
-        else:
-            self.start_str = self.start
-            self.end_str = self.end
-            self.start = None
-            self.end = None
 
 
 @dataclass
@@ -57,8 +45,8 @@ class Routine:
     type: str
     repeat: str
     duration: int
-    time: str | None = None
-    deadline_time: str | None = None
+    time: time | datetime | None = None
+    deadline_time: time | datetime | None = None
     weekdays: list[int] | None = None
     priority: int = 0
     break_duration: int = 0
