@@ -38,7 +38,7 @@ def expand_routines(routines, now, horizon_minutes):
                     continue  # Invalid fixed routine
 
                 t_val = routine.time.time() if hasattr(routine.time, "time") else routine.time
-                routine_dt = datetime.combine(current_date, t_val)
+                routine_dt = datetime.combine(current_date, t_val, tzinfo=now.tzinfo)
 
                 start_min = int((routine_dt - now).total_seconds() / 60)
                 end_min = start_min + routine.duration_min
@@ -58,10 +58,10 @@ def expand_routines(routines, now, horizon_minutes):
             elif routine.type == "flexible":
                 if routine.deadline_time:
                     t_val = routine.deadline_time.time() if hasattr(routine.deadline_time, "time") else routine.deadline_time
-                    deadline_dt = datetime.combine(current_date, t_val)
+                    deadline_dt = datetime.combine(current_date, t_val, tzinfo=now.tzinfo)
                 else:
                     dt_str = f"{current_date.strftime('%Y-%m-%d')} 23:59"
-                    deadline_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+                    deadline_dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M").replace(tzinfo=now.tzinfo)
                 deadline_min = int((deadline_dt - now).total_seconds() / 60)
 
                 # Only include if the deadline is in the future
@@ -80,7 +80,7 @@ def expand_routines(routines, now, horizon_minutes):
                     t.deadline_min = deadline_min
                     t.is_routine = True
 
-                    start_of_day_dt = datetime(current_date.year, current_date.month, current_date.day)
+                    start_of_day_dt = datetime(current_date.year, current_date.month, current_date.day, tzinfo=now.tzinfo)
                     start_min = int((start_of_day_dt - now).total_seconds() / 60)
                     t.start_min = max(0, start_min)
 
