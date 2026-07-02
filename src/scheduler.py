@@ -80,7 +80,9 @@ class Scheduler:
         start_time: datetime | None = None,
         timeout_seconds: float = 0.5,
         max_horizon_days: int | None = None,
-        priority_threshold: int | None = None
+        priority_threshold: int | None = None,
+        num_search_workers: int = 1,
+        max_memory_in_mb: int = 256
     ) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
         
@@ -120,15 +122,23 @@ class Scheduler:
         # Solve
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = timeout_seconds
+        solver.parameters.num_search_workers = num_search_workers
+        solver.parameters.max_memory_in_mb = max_memory_in_mb
 
         status = solver.solve(model)
 
         # Parse results
-        result = ScheduleResult(
-            status_name=(
-                "OPTIMAL" if status == cp_model.OPTIMAL else "FEASIBLE" if status == cp_model.FEASIBLE else "INFEASIBLE"
-            )
-        )
+        match status:
+            case cp_model.OPTIMAL:
+                s_name = "OPTIMAL"
+            case cp_model.FEASIBLE:
+                s_name = "FEASIBLE"
+            case cp_model.UNKNOWN:
+                s_name = "UNKNOWN"
+            case _:
+                s_name = "INFEASIBLE"
+
+        result = ScheduleResult(status_name=s_name)
 
         if result.is_successful:
             for task in combined_tasks:

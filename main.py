@@ -45,7 +45,7 @@ def main():
 
     start_time_solving = time.perf_counter()
     now = datetime.now().replace(second=0, microsecond=0)
-    result = scheduler.solve(start_time=now, timeout_seconds=0.5)
+    result = scheduler.solve(start_time=now, timeout_seconds=3)
     end_time_solving = time.perf_counter()
 
     print("Time taken to solve the model: {:.6f} seconds".format(end_time_solving - start_time_solving))
@@ -117,7 +117,7 @@ def main():
                 deadline_info = f", deadline: {st.task.deadline}" if st.task.deadline else ""
                 print(f"  {st.task.name} ({int(st.task.duration.total_seconds() // 60)} min{deadline_info})")
     else:
-        print("No solution found.")
+        print(f"{result.status}")
 
 
 if __name__ == "__main__":
