@@ -58,27 +58,29 @@ def generate_blocked_intervals(time_blocks, horizon):
     return [(block.start, block.end) for block in merge_time_blocks(actual_blocks)]
 
 
-def calculate_task_weight(task, horizon, priority_threshold=5):
+def calculate_task_weight(task, priority_threshold=5):
     """
     Calculates the task weight for the objective function based on a 2-Tier logic.
     High tier tasks (priority >= priority_threshold) absolutely dominate.
     Inside each tier, deadlines dominate over priority.
     """
-    time_penalty = 10
-    max_time_bonus = horizon * time_penalty
-    deadline_step = max_time_bonus + 10_000
+    priority_step = 1
+    deadline_step = 15 
+    
     max_deadline_bonus = 3650 * deadline_step
     
-    low_tier_base = max_deadline_bonus + 10_000
+    low_tier_base = 60000
     high_tier_base = low_tier_base * 1000
 
     deadline_days = task.deadline_min // 1440 if getattr(task, "deadline_min", None) is not None else 3650
     days_inverted = max(0, 3650 - deadline_days)
+    
+    weighted_priority = task.priority * priority_step
 
     if task.priority >= priority_threshold:
-        return high_tier_base + (days_inverted * deadline_step) + task.priority
+        return high_tier_base + (days_inverted * deadline_step) + weighted_priority
     else:
-        return low_tier_base + (days_inverted * deadline_step) + task.priority
+        return low_tier_base + (days_inverted * deadline_step) + weighted_priority
 
 
 def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=5, horizon=None):
@@ -101,6 +103,10 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
     # Create variables for each user task
     for i, task in enumerate(user_tasks):
+        task_upper_bound = horizon
+        if getattr(task, "deadline_min", None) is not None:
+            task_upper_bound = min(horizon, max(task.start_min, task.deadline_min))
+
         needs_chunking = task.min_chunk_duration_min is not None and task.duration_min > task.min_chunk_duration_min
 
         if needs_chunking:
@@ -114,8 +120,8 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
             for c in range(max_chunks):
                 chunk = {}
-                chunk["start_var"] = model.new_int_var(task.start_min, horizon, f"start_{i}_chunk_{c}")
-                chunk["end_var"] = model.new_int_var(task.start_min, horizon, f"end_{i}_chunk_{c}")
+                chunk["start_var"] = model.new_int_var(task.start_min, task_upper_bound, f"start_{i}_chunk_{c}")
+                chunk["end_var"] = model.new_int_var(task.start_min, task_upper_bound, f"end_{i}_chunk_{c}")
                 chunk["size_var"] = model.new_int_var(0, task.max_chunk_duration_min, f"size_{i}_chunk_{c}")
                 chunk["presence_var"] = model.new_bool_var(f"presence_{i}_chunk_{c}")
 
@@ -175,17 +181,17 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
             
             actual_chunk_ends = []
             for c, chunk in enumerate(task.chunks):
-                actual_end = model.new_int_var(0, horizon, f"actual_end_{i}_chunk_{c}")
+                actual_end = model.new_int_var(0, task_upper_bound, f"actual_end_{i}_chunk_{c}")
                 model.add(actual_end == chunk["end_var"]).only_enforce_if(chunk["presence_var"])
                 model.add(actual_end == 0).only_enforce_if(chunk["presence_var"].negated())
                 actual_chunk_ends.append(actual_end)
                 
-            task.end_var = model.new_int_var(0, horizon, f"task_end_{i}")
+            task.end_var = model.new_int_var(0, task_upper_bound, f"task_end_{i}")
             model.add_max_equality(task.end_var, actual_chunk_ends)
 
         else:
-            task.start_var = model.new_int_var(task.start_min, horizon, f"start_{i}")
-            task.end_var = model.new_int_var(task.start_min, horizon, f"end_{i}")
+            task.start_var = model.new_int_var(task.start_min, task_upper_bound, f"start_{i}")
+            task.end_var = model.new_int_var(task.start_min, task_upper_bound, f"end_{i}")
             task.presence_var = model.new_bool_var(f"presence_{i}")
             task.interval_var = model.new_optional_interval_var(
                 task.start_var, task.duration_min, task.end_var, task.presence_var, f"task_interval_{i}"
@@ -222,21 +228,39 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
             else:
                 model.add(task.end_var <= task.deadline_min).only_enforce_if(task.presence_var)
 
-    # Maximize the weighted sum of scheduled tasks
-    objective_terms = []
+    # Stage 1: Packer objective (only fixed weight)
+    presence_terms = []
+    
+    # Stage 2: Gravity objective (time bonuses)
+    time_bonus_terms = []
 
     for i, task in enumerate(user_tasks):
-        fixed_weight = calculate_task_weight(task, horizon, priority_threshold)
-        objective_terms.append(task.presence_var * fixed_weight)
+        fixed_weight = calculate_task_weight(task, priority_threshold)
+        presence_terms.append(task.presence_var * fixed_weight)
         
-        # Dynamic early placement bonus
-        early_bonus_var = model.new_int_var(0, horizon, f'early_bonus_{i}')
-        model.add(early_bonus_var == horizon - task.end_var).only_enforce_if(task.presence_var)
-        model.add(early_bonus_var == 0).only_enforce_if(task.presence_var.negated())
+        # 3. Force avoiding unnecessary splits (Micro-penalty in Stage 1)
+        if getattr(task, "chunks", None):
+            for c, chunk in enumerate(task.chunks):
+                presence_terms.append(chunk["presence_var"] * -1)
         
-        time_penalty = task.priority
-        objective_terms.append(early_bonus_var * time_penalty)
+        gravity_multiplier = (task.priority ** 3) 
         
-    model.maximize(sum(objective_terms))
+        # 1. Pull the entire task to the left (Bonus)
+        task_gravity = model.new_int_var(0, horizon, f'task_gravity_{i}')
+        model.add(task_gravity == horizon - task.start_var).only_enforce_if(task.presence_var)
+        model.add(task_gravity == 0).only_enforce_if(task.presence_var.negated())
+        time_bonus_terms.append(task_gravity * (gravity_multiplier * 1000))
+        
+        # 2. Force chunks to stick together (Penalty for GAPS)
+        task_gaps = model.new_int_var(0, horizon, f'task_gaps_{i}')
+        model.add(task_gaps == (task.end_var - task.start_var) - task.duration_min).only_enforce_if(task.presence_var)
+        model.add(task_gaps == 0).only_enforce_if(task.presence_var.negated())
+        time_bonus_terms.append(task_gaps * (-gravity_multiplier * 10))
+        
+    # Set objective for Stage 1
+    model.maximize(sum(presence_terms))
+    
+    # Attach Stage 2 terms to the model for scheduler.py
+    model.time_bonus_terms = time_bonus_terms
 
     return model

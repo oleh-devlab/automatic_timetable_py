@@ -31,27 +31,19 @@ def main():
     for routine in routines:
         scheduler.add_routine(routine)
 
-    # Test programmatic native datetime insertion    
-    dt_now = datetime.now()
-    dt_block_start = dt_now + timedelta(days=1, hours=1)
-    dt_block_end = dt_now + timedelta(days=1, hours=2)
-    dt_task_deadline = dt_now + timedelta(days=2)
-    
-    scheduler.add_time_block(TimeBlock(start=dt_block_start, end=dt_block_end, daily=False))
-    scheduler.add_task(Task(name="Test Native Datetime Task", duration=timedelta(minutes=30), deadline=dt_task_deadline, priority=10))
-
     end_time_creating = time.perf_counter()
     print("Time taken to load and create scheduler: {:.6f} seconds".format(end_time_creating - start_time_creating))
 
     start_time_solving = time.perf_counter()
     now = datetime.now().replace(second=0, microsecond=0)
-    result = scheduler.solve(start_time=now, timeout_seconds=3)
+    result = scheduler.solve(start_time=now, timeout_seconds=60, num_search_workers=8)
     end_time_solving = time.perf_counter()
 
     print("Time taken to solve the model: {:.6f} seconds".format(end_time_solving - start_time_solving))
 
     if result.is_successful:
         print(f"Status: {result.status}")
+        print(f"Horizon used: {result.horizon} minutes ({result.horizon / 60 / 24:.2f} days)")
 
         events = []
 

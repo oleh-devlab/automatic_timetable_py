@@ -45,16 +45,23 @@ class SkippedTask:
 
 
 class ScheduleResult:
-    def __init__(self, status_name: str):
-        self.status = status_name
+    def __init__(self, packer_status_name: str, gravity_status_name: str | None = None):
+        self.packer_status = packer_status_name
+        self.gravity_status = gravity_status_name
+        if gravity_status_name:
+            self.status = f"{packer_status_name} (Packer) / {gravity_status_name} (Gravity)"
+        else:
+            self.status = packer_status_name
+            
         self.scheduled_tasks: list[ScheduledTask] = []
         self.skipped_tasks: list[SkippedTask] = []
         self.scheduled_routines: list[ScheduledRoutine] = []
         self.flexible_routines_info: list[FlexibleRoutineInfo] = []
+        self.horizon: int = 0
 
     @property
     def is_successful(self):
-        return self.status in ("OPTIMAL", "FEASIBLE")
+        return self.packer_status in ("OPTIMAL", "FEASIBLE")
 
 
 class Scheduler:
@@ -119,26 +126,47 @@ class Scheduler:
             horizon=horizon,
         )
 
-        # Solve
+        # Stage 1: Packer
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = timeout_seconds
         solver.parameters.num_search_workers = num_search_workers
         solver.parameters.max_memory_in_mb = max_memory_in_mb
 
-        status = solver.solve(model)
+        packer_status = solver.solve(model)
+        gravity_status = None
+
+        if packer_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            # Stage 2: Gravity
+            # 1. Lock the presence variables based on Stage 1 solution
+            for task in combined_tasks:
+                if hasattr(task, "presence_var"):
+                    val = solver.value(task.presence_var)
+                    model.add(task.presence_var == val)
+                if getattr(task, "chunks", None):
+                    for chunk in task.chunks:
+                        val = solver.value(chunk["presence_var"])
+                        model.add(chunk["presence_var"] == val)
+            
+            # 2. Set new objective for time placement
+            if hasattr(model, "time_bonus_terms"):
+                model.maximize(sum(model.time_bonus_terms))
+                
+                # Re-solve (reusing the same solver instance limits time globally)
+                gravity_status = solver.solve(model)
 
         # Parse results
-        match status:
-            case cp_model.OPTIMAL:
-                s_name = "OPTIMAL"
-            case cp_model.FEASIBLE:
-                s_name = "FEASIBLE"
-            case cp_model.UNKNOWN:
-                s_name = "UNKNOWN"
-            case _:
-                s_name = "INFEASIBLE"
+        def status_to_str(s):
+            match s:
+                case cp_model.OPTIMAL: return "OPTIMAL"
+                case cp_model.FEASIBLE: return "FEASIBLE"
+                case cp_model.UNKNOWN: return "UNKNOWN"
+                case _: return "INFEASIBLE"
 
-        result = ScheduleResult(status_name=s_name)
+        packer_str = status_to_str(packer_status)
+        gravity_str = status_to_str(gravity_status) if gravity_status is not None else None
+
+        result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
+        result.horizon = horizon
 
         if result.is_successful:
             for task in combined_tasks:

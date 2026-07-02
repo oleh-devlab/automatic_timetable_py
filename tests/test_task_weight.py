@@ -26,8 +26,8 @@ class TestCalculateTaskWeight(unittest.TestCase):
         low = Task(name="personal", duration=timedelta(minutes=60), priority=9)
         low.deadline_min = 0  # deadline right now
 
-        high_weight = calculate_task_weight(high, horizon=self.horizon, priority_threshold=10)
-        low_weight = calculate_task_weight(low, horizon=self.horizon, priority_threshold=10)
+        high_weight = calculate_task_weight(high, priority_threshold=10)
+        low_weight = calculate_task_weight(low, priority_threshold=10)
 
         self.assertGreater(high_weight, low_weight, "Any High Tier task must outweigh any Low Tier task")
 
@@ -37,9 +37,9 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task.deadline_min = None
 
         # With threshold=5, task is High Tier
-        weight_high = calculate_task_weight(task, horizon=self.horizon, priority_threshold=5)
+        weight_high = calculate_task_weight(task, priority_threshold=5)
         # With threshold=6, task is Low Tier
-        weight_low = calculate_task_weight(task, horizon=self.horizon, priority_threshold=6)
+        weight_low = calculate_task_weight(task, priority_threshold=6)
 
         self.assertGreater(weight_high, weight_low)
 
@@ -53,8 +53,8 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task_far = Task(name="distant", duration=timedelta(minutes=60), priority=3)
         task_far.deadline_min = 1440 * 7  # 7 days
 
-        w_close = calculate_task_weight(task_close, horizon=self.horizon, priority_threshold=10)
-        w_far = calculate_task_weight(task_far, horizon=self.horizon, priority_threshold=10)
+        w_close = calculate_task_weight(task_close, priority_threshold=10)
+        w_far = calculate_task_weight(task_far, priority_threshold=10)
 
         self.assertGreater(w_close, w_far)
 
@@ -70,8 +70,8 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task_far = Task(name="not_urgent_high_prio", duration=timedelta(minutes=60), priority=9)
         task_far.deadline_min = 1440 * 30  # 30 days
 
-        w_close = calculate_task_weight(task_close, horizon=self.horizon, priority_threshold=10)
-        w_far = calculate_task_weight(task_far, horizon=self.horizon, priority_threshold=10)
+        w_close = calculate_task_weight(task_close, priority_threshold=10)
+        w_far = calculate_task_weight(task_far, priority_threshold=10)
 
         self.assertGreater(w_close, w_far)
 
@@ -83,8 +83,8 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task_without = Task(name="no_dl", duration=timedelta(minutes=60), priority=3)
         task_without.deadline_min = None
 
-        w_with = calculate_task_weight(task_with, horizon=self.horizon, priority_threshold=10)
-        w_without = calculate_task_weight(task_without, horizon=self.horizon, priority_threshold=10)
+        w_with = calculate_task_weight(task_with, priority_threshold=10)
+        w_without = calculate_task_weight(task_without, priority_threshold=10)
 
         self.assertGreater(w_with, w_without)
 
@@ -98,8 +98,8 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task_low_prio = Task(name="low_p", duration=timedelta(minutes=60), priority=2)
         task_low_prio.deadline_min = 1440 * 3
 
-        w_high = calculate_task_weight(task_high_prio, horizon=self.horizon, priority_threshold=10)
-        w_low = calculate_task_weight(task_low_prio, horizon=self.horizon, priority_threshold=10)
+        w_high = calculate_task_weight(task_high_prio, priority_threshold=10)
+        w_low = calculate_task_weight(task_low_prio, priority_threshold=10)
 
         self.assertGreater(w_high, w_low)
 
@@ -109,7 +109,7 @@ class TestCalculateTaskWeight(unittest.TestCase):
         """Priority 0 (default) should work without errors."""
         task = Task(name="default", duration=timedelta(minutes=60), priority=0)
         task.deadline_min = None
-        weight = calculate_task_weight(task, horizon=self.horizon, priority_threshold=10)
+        weight = calculate_task_weight(task, priority_threshold=10)
         # Should be low_tier_base + 0
         self.assertGreater(weight, 0)
 
@@ -117,11 +117,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
         """Deadline at minute 0 (right now) should give maximum urgency within the tier."""
         task = Task(name="now", duration=timedelta(minutes=60), priority=5)
         task.deadline_min = 0
-        weight_now = calculate_task_weight(task, horizon=self.horizon, priority_threshold=10)
+        weight_now = calculate_task_weight(task, priority_threshold=10)
         
         task_later = Task(name="later", duration=timedelta(minutes=60), priority=5)
         task_later.deadline_min = 1440
-        weight_later = calculate_task_weight(task_later, horizon=self.horizon, priority_threshold=10)
+        weight_later = calculate_task_weight(task_later, priority_threshold=10)
         
         self.assertGreater(weight_now, weight_later)
 
@@ -129,11 +129,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
         """A deadline far in the future (> 3650 days) should clamp days_inverted to 0."""
         task1 = Task(name="far1", duration=timedelta(minutes=60), priority=5)
         task1.deadline_min = 1440 * 4000  # ~11 years
-        weight1 = calculate_task_weight(task1, horizon=self.horizon, priority_threshold=10)
+        weight1 = calculate_task_weight(task1, priority_threshold=10)
         
         task2 = Task(name="far2", duration=timedelta(minutes=60), priority=5)
         task2.deadline_min = 1440 * 5000  # ~13 years
-        weight2 = calculate_task_weight(task2, horizon=self.horizon, priority_threshold=10)
+        weight2 = calculate_task_weight(task2, priority_threshold=10)
         
         # Both should be clamped, so their weights should be exactly equal
         self.assertEqual(weight1, weight2)

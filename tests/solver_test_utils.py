@@ -24,7 +24,23 @@ class BaseSolverTest(unittest.TestCase):
         solver.parameters.num_search_workers = 1
 
         status = solver.solve(model)
-        self.assertIn(status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution")
+        self.assertIn(status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 1")
+        
+        # Stage 2: Gravity
+        for task in tasks:
+            if hasattr(task, "presence_var"):
+                val = solver.value(task.presence_var)
+                model.add(task.presence_var == val)
+            if getattr(task, "chunks", None):
+                for chunk in task.chunks:
+                    val = solver.value(chunk["presence_var"])
+                    model.add(chunk["presence_var"] == val)
+                    
+        if hasattr(model, "time_bonus_terms"):
+            model.maximize(sum(model.time_bonus_terms))
+            status = solver.solve(model)
+            self.assertIn(status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 2")
+
         self._assert_invariants(solver, tasks, time_blocks)
         return solver
 
