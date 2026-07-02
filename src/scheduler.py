@@ -58,7 +58,7 @@ class ScheduleResult:
 
 
 class Scheduler:
-    def __init__(self, max_horizon_days: int = 14, priority_threshold: int = 10):
+    def __init__(self, max_horizon_days: int = 14, priority_threshold: int = 5):
         self.max_horizon_days = max_horizon_days
         self.priority_threshold = priority_threshold
 

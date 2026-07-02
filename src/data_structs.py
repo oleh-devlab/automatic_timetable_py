@@ -6,7 +6,7 @@ class Task:
     name: str
     duration: timedelta
     deadline: datetime | None = None
-    priority: int = 0
+    priority: int = 1
     min_chunk_duration: timedelta | None = None
     max_chunk_duration: timedelta | None = None
     break_duration: timedelta = field(default_factory=timedelta)
@@ -62,7 +62,7 @@ class Routine:
     time: time | datetime | None = None
     deadline_time: time | datetime | None = None
     weekdays: list[int] | None = None
-    priority: int = 0
+    priority: int = 1
     break_duration: timedelta = field(default_factory=timedelta)
 
     @property

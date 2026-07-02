@@ -23,16 +23,19 @@ Tasks can have a `deadline` (e.g., `"30.06.2026 12:00"`).
 - **Strict Limits:** The solver ensures that the task (and all of its chunks, if chunked) ends before the specified deadline.
 - **All-or-Nothing Rule:** CP-SAT uses strict scheduling. If a task requires 120 minutes, but only 90 minutes are available before its deadline, the solver will completely skip the task rather than scheduling it partially. It will appear in the "Skipped tasks" output.
 
-### 3. Priorities & The 2-Tier Logic
-Tasks can have a `priority` (integer, default `0`). The solver uses a **2-Tier system** (based on a `priority_threshold = 10`) to determine which tasks to schedule when there is a lack of free time.
+### 3. Priorities, Tiers & Early Placement
+Tasks can have a `priority` (integer, default `1`). The mathematical model is designed and verified for the **0–10 range**. While technically possible, exceeding priority 10 is done at your own risk, as the extreme time-bonus multipliers could cause unexpected schedule distortions or override deadline weights.
 
-- **High Tier (Priority >= 10):** These are mandatory or critical tasks (e.g., University assignments).
-- **Low Tier (Priority < 10):** These are less critical, personal tasks.
+The solver uses a **2-Tier system** (based on `priority_threshold = 5`) to determine which tasks to schedule when there is a lack of free time.
+- **High Tier (Priority >= 5):** Mandatory or critical tasks (e.g., University assignments).
+- **Low Tier (Priority < 5):** Less critical, personal tasks.
 
-**How Conflicts are Resolved:**
-1. **Absolute Tier Dominance:** The solver mathematically guarantees that **any** High Tier task is more valuable than **all** Low Tier tasks combined. It will gladly drop hundreds of Low Tier tasks to ensure just one High Tier task is scheduled.
-2. **Inside a Tier (Deadlines vs. Priorities):** Within the same tier, tasks are prioritized by their deadlines. A task due "today" has a much higher weight than a task due "next week", regardless of their priority values. Priority acts as a tiebreaker for tasks with deadlines on the same day, and as the main sorter for tasks without deadlines.
-3. **The Knapsack Phenomenon (Soft Priority):** Because CP-SAT is a global optimizer, it maximizes the *total sum of weights*. This means that if it's forced to choose between scheduling **ONE** urgent task (e.g., 2 hours long) OR **THREE** less urgent tasks (e.g., 40 mins each) from the same tier, it will often choose to do the three tasks. This "soft priority" behavior ensures maximum productivity, rather than leaving giant holes in your schedule just to squeeze in one specific task. If a task is truly a life-and-death matter, simply give it a priority of 10 or higher to move it to the High Tier.
+**Behaviors and Resolutions:**
+1. **Absolute Tier Dominance:** The solver mathematically guarantees that **any** High Tier task is more valuable than **all** Low Tier tasks combined.
+2. **Inside a Tier (Deadlines vs. Priorities):** Within the same tier, tasks are prioritized by their deadlines. A closer deadline always outweighs a distant one, regardless of priority.
+3. **Early Placement Sorting:** Priority also acts as a "gravity" multiplier. Higher priority tasks are pulled to the earliest available slots in your day (e.g., priority 9 will be automatically scheduled before priority 2).
+4. **Floating Tasks (Priority 0):** A priority of `0` removes the early-placement gravity entirely. These tasks act as "fillers" — they will be pushed to the evening or the end of the week, filling gaps without competing for your most productive morning slots.
+5. **The Knapsack Phenomenon (Soft Priority):** Because CP-SAT maximizes the *total sum of weights*, if forced to choose between scheduling **ONE** urgent 2-hour task OR **THREE** less urgent 40-min tasks from the same tier, it will often choose the three tasks to maximize overall productivity.
 
 ### 4. Routines
 Routines are recurring tasks that should be performed regularly (daily or weekly). Instead of creating them manually for every day, you define them once in the `"routines"` section of your `data.json`.

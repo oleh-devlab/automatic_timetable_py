@@ -20,7 +20,7 @@ def main():
     data_path = os.path.join(os.path.dirname(__file__), "data.json")
     user_tasks, time_blocks, routines = data_read.load_data(data_path)
 
-    scheduler = Scheduler(max_horizon_days=14, priority_threshold=10)
+    scheduler = Scheduler(max_horizon_days=14, priority_threshold=5)
 
     for task in user_tasks:
         scheduler.add_task(task)

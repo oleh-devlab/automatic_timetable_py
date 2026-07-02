@@ -9,14 +9,14 @@ class BaseSolverTest(unittest.TestCase):
     for solving and validating CP-SAT scheduling models.
     """
 
-    def _solve(self, tasks, time_blocks=None):
+    def _solve(self, tasks, time_blocks=None, priority_threshold=10):
         """
         Helper: builds the model, solves it, and asserts a valid solution was found.
         Returns the solver instance for further assertions.
         """
         if time_blocks is None:
             time_blocks = []
-        model = create_model(tasks, time_blocks)
+        model = create_model(tasks, time_blocks, priority_threshold=priority_threshold)
         solver = cp_model.CpSolver()
 
         # Test infrastructure limits

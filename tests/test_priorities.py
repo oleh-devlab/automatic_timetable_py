@@ -142,5 +142,51 @@ class TestPriorities(BaseSolverTest):
         self.assertTrue(solver.value(task.presence_var))
 
 
+    # --- Early Placement & Priority 0 ---
+
+    def test_early_placement_sorts_by_priority(self):
+        """
+        If two tasks have the same deadline and tier, the one with
+        higher priority should be scheduled earlier (closer to 0) 
+        because of the priority-based early placement bonus.
+        """
+        task_high_p = Task(name="high_p", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0))
+        task_high_p.deadline_min = None
+        
+        task_low_p = Task(name="low_p", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
+        task_low_p.deadline_min = None
+        
+        solver = self._solve([task_high_p, task_low_p])
+        
+        self.assertTrue(solver.value(task_high_p.presence_var))
+        self.assertTrue(solver.value(task_low_p.presence_var))
+        
+        start_high = solver.value(task_high_p.start_var)
+        start_low = solver.value(task_low_p.start_var)
+        
+        self.assertLess(start_high, start_low, 
+                        "Higher priority task should be scheduled earlier than lower priority task")
+
+    def test_priority_zero_floats(self):
+        """
+        A task with priority 0 has 0 multiplier for early placement,
+        so it doesn't fight for the early slots. It should be placed
+        after any task with priority > 0.
+        """
+        task_prio_1 = Task(name="prio_1", duration=timedelta(minutes=60), priority=1, break_duration=timedelta(minutes=0))
+        task_prio_1.deadline_min = None
+        
+        task_prio_0 = Task(name="prio_0", duration=timedelta(minutes=60), priority=0, break_duration=timedelta(minutes=0))
+        task_prio_0.deadline_min = None
+        
+        solver = self._solve([task_prio_1, task_prio_0])
+        
+        start_p1 = solver.value(task_prio_1.start_var)
+        start_p0 = solver.value(task_prio_0.start_var)
+        
+        self.assertLess(start_p1, start_p0, 
+                        "Priority > 0 should be scheduled before Priority 0")
+
+
 if __name__ == "__main__":
     unittest.main()

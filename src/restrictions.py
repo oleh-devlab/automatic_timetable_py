@@ -58,7 +58,7 @@ def generate_blocked_intervals(time_blocks, horizon):
     return [(block.start, block.end) for block in merge_time_blocks(actual_blocks)]
 
 
-def calculate_task_weight(task, horizon, priority_threshold=10):
+def calculate_task_weight(task, horizon, priority_threshold=5):
     """
     Calculates the task weight for the objective function based on a 2-Tier logic.
     High tier tasks (priority >= priority_threshold) absolutely dominate.
@@ -81,7 +81,7 @@ def calculate_task_weight(task, horizon, priority_threshold=10):
         return low_tier_base + (days_inverted * deadline_step) + task.priority
 
 
-def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=10, horizon=None):
+def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=5, horizon=None):
     model = cp_model.CpModel()
 
     # Data preparation and calculation of constraints
@@ -172,7 +172,16 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
             # We keep the start/end values to ensure compatibility
             task.start_var = task.chunks[0]["start_var"]
-            task.end_var = task.chunks[-1]["end_var"]
+            
+            actual_chunk_ends = []
+            for c, chunk in enumerate(task.chunks):
+                actual_end = model.new_int_var(0, horizon, f"actual_end_{i}_chunk_{c}")
+                model.add(actual_end == chunk["end_var"]).only_enforce_if(chunk["presence_var"])
+                model.add(actual_end == 0).only_enforce_if(chunk["presence_var"].negated())
+                actual_chunk_ends.append(actual_end)
+                
+            task.end_var = model.new_int_var(0, horizon, f"task_end_{i}")
+            model.add_max_equality(task.end_var, actual_chunk_ends)
 
         else:
             task.start_var = model.new_int_var(task.start_min, horizon, f"start_{i}")
@@ -215,7 +224,6 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
     # Maximize the weighted sum of scheduled tasks
     objective_terms = []
-    time_penalty = 10
 
     for i, task in enumerate(user_tasks):
         fixed_weight = calculate_task_weight(task, horizon, priority_threshold)
@@ -223,9 +231,10 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
         
         # Dynamic early placement bonus
         early_bonus_var = model.new_int_var(0, horizon, f'early_bonus_{i}')
-        model.add(early_bonus_var == horizon - task.start_var).only_enforce_if(task.presence_var)
+        model.add(early_bonus_var == horizon - task.end_var).only_enforce_if(task.presence_var)
         model.add(early_bonus_var == 0).only_enforce_if(task.presence_var.negated())
         
+        time_penalty = task.priority
         objective_terms.append(early_bonus_var * time_penalty)
         
     model.maximize(sum(objective_terms))
