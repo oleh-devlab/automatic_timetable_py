@@ -58,19 +58,27 @@ def generate_blocked_intervals(time_blocks, horizon):
     return [(block.start, block.end) for block in merge_time_blocks(actual_blocks)]
 
 
-def calculate_task_weight(task, priority_threshold=10):
+def calculate_task_weight(task, horizon, priority_threshold=10):
     """
     Calculates the task weight for the objective function based on a 2-Tier logic.
     High tier tasks (priority >= priority_threshold) absolutely dominate.
     Inside each tier, deadlines dominate over priority.
     """
+    time_penalty = 10
+    max_time_bonus = horizon * time_penalty
+    deadline_step = max_time_bonus + 10_000
+    max_deadline_bonus = 3650 * deadline_step
+    
+    low_tier_base = max_deadline_bonus + 10_000
+    high_tier_base = low_tier_base * 1000
+
     deadline_days = task.deadline_min // 1440 if getattr(task, "deadline_min", None) is not None else 3650
     days_inverted = max(0, 3650 - deadline_days)
 
     if task.priority >= priority_threshold:
-        return 100_000_000 + (days_inverted * 10_000) + task.priority
+        return high_tier_base + (days_inverted * deadline_step) + task.priority
     else:
-        return 10_000 + (days_inverted * 10) + task.priority
+        return low_tier_base + (days_inverted * deadline_step) + task.priority
 
 
 def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=10, horizon=None):
@@ -207,10 +215,19 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
 
     # Maximize the weighted sum of scheduled tasks
     objective_terms = []
-    for task in user_tasks:
-        weight = calculate_task_weight(task, priority_threshold)
-        objective_terms.append(task.presence_var * weight)
+    time_penalty = 10
 
+    for i, task in enumerate(user_tasks):
+        fixed_weight = calculate_task_weight(task, horizon, priority_threshold)
+        objective_terms.append(task.presence_var * fixed_weight)
+        
+        # Dynamic early placement bonus
+        early_bonus_var = model.new_int_var(0, horizon, f'early_bonus_{i}')
+        model.add(early_bonus_var == horizon - task.start_var).only_enforce_if(task.presence_var)
+        model.add(early_bonus_var == 0).only_enforce_if(task.presence_var.negated())
+        
+        objective_terms.append(early_bonus_var * time_penalty)
+        
     model.maximize(sum(objective_terms))
 
     return model
