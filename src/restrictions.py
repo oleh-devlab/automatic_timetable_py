@@ -68,7 +68,7 @@ def calculate_task_weight(task, horizon, priority_threshold=5):
     max_time_bonus = horizon * time_penalty
     deadline_step = max_time_bonus + 10_000
     max_deadline_bonus = 3650 * deadline_step
-    
+
     low_tier_base = max_deadline_bonus + 10_000
     high_tier_base = low_tier_base * 1000
 
@@ -133,7 +133,9 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
                 ext_size = model.new_int_var(
                     0, task.max_chunk_duration_min + task.break_duration_min, f"ext_size_{i}_chunk_{c}"
                 )
-                model.add(ext_size == chunk["size_var"] + task.break_duration_min).only_enforce_if(chunk["presence_var"])
+                model.add(ext_size == chunk["size_var"] + task.break_duration_min).only_enforce_if(
+                    chunk["presence_var"]
+                )
                 model.add(ext_size == 0).only_enforce_if(chunk["presence_var"].negated())
 
                 ext_end = model.new_int_var(0, horizon * 2, f"ext_end_{i}_chunk_{c}")
@@ -161,25 +163,25 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
                 if c < max_chunks - 1:
                     next_chunk = task.chunks[c + 1]
 
-                    model.add(chunk["size_var"] >= task.min_chunk_duration_min).only_enforce_if(next_chunk["presence_var"])
+                    model.add(chunk["size_var"] >= task.min_chunk_duration_min).only_enforce_if(
+                        next_chunk["presence_var"]
+                    )
 
-            model.add(sum(c["size_var"] for c in task.chunks) == task.duration_min).only_enforce_if(
-                task.presence_var
-            )
+            model.add(sum(c["size_var"] for c in task.chunks) == task.duration_min).only_enforce_if(task.presence_var)
 
             for chunk in task.chunks:
                 model.add_implication(task.presence_var.negated(), chunk["presence_var"].negated())
 
             # We keep the start/end values to ensure compatibility
             task.start_var = task.chunks[0]["start_var"]
-            
+
             actual_chunk_ends = []
             for c, chunk in enumerate(task.chunks):
                 actual_end = model.new_int_var(0, horizon, f"actual_end_{i}_chunk_{c}")
                 model.add(actual_end == chunk["end_var"]).only_enforce_if(chunk["presence_var"])
                 model.add(actual_end == 0).only_enforce_if(chunk["presence_var"].negated())
                 actual_chunk_ends.append(actual_end)
-                
+
             task.end_var = model.new_int_var(0, horizon, f"task_end_{i}")
             model.add_max_equality(task.end_var, actual_chunk_ends)
 
@@ -228,15 +230,15 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
     for i, task in enumerate(user_tasks):
         fixed_weight = calculate_task_weight(task, horizon, priority_threshold)
         objective_terms.append(task.presence_var * fixed_weight)
-        
+
         # Dynamic early placement bonus
-        early_bonus_var = model.new_int_var(0, horizon, f'early_bonus_{i}')
+        early_bonus_var = model.new_int_var(0, horizon, f"early_bonus_{i}")
         model.add(early_bonus_var == horizon - task.end_var).only_enforce_if(task.presence_var)
         model.add(early_bonus_var == 0).only_enforce_if(task.presence_var.negated())
-        
+
         time_penalty = task.priority
         objective_terms.append(early_bonus_var * time_penalty)
-        
+
     model.maximize(sum(objective_terms))
 
     return model
