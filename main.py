@@ -55,23 +55,11 @@ def main():
 
         events = []
 
-        for r in result.fixed_routines:
-            dt = datetime.combine(r.day, r.time)
-            events.append(
-                {
-                    "type": "Fixed Routine",
-                    "name": r.name,
-                    "start": dt,
-                    "end": dt + r.duration,
-                    "duration": int(r.duration.total_seconds() // 60),
-                    "details": "",
-                }
-            )
-
         for sr in result.scheduled_routines:
+            r_type = "Fixed Routine" if sr.routine_type == "fixed" else "Flexible Routine"
             events.append(
                 {
-                    "type": "Flexible Routine",
+                    "type": r_type,
                     "name": sr.task.name,
                     "start": sr.start_time,
                     "end": sr.end_time,

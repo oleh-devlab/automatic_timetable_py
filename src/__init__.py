@@ -4,7 +4,6 @@ from .scheduler import (
     ScheduledTask,
     ScheduledChunk,
     ScheduledRoutine,
-    FixedRoutine,
     FlexibleRoutineInfo,
     SkippedTask,
 )
@@ -16,7 +15,6 @@ __all__ = [
     "ScheduledTask",
     "ScheduledChunk",
     "ScheduledRoutine",
-    "FixedRoutine",
     "FlexibleRoutineInfo",
     "SkippedTask",
     "Task",

@@ -28,14 +28,7 @@ class ScheduledRoutine:
     task: Task
     start_time: datetime
     end_time: datetime
-
-
-@dataclass
-class FixedRoutine:
-    name: str
-    day: date
-    time: str
-    duration: timedelta
+    routine_type: str = "flexible"
 
 
 @dataclass
@@ -57,7 +50,6 @@ class ScheduleResult:
         self.scheduled_tasks: list[ScheduledTask] = []
         self.skipped_tasks: list[SkippedTask] = []
         self.scheduled_routines: list[ScheduledRoutine] = []
-        self.fixed_routines: list[FixedRoutine] = []
         self.flexible_routines_info: list[FlexibleRoutineInfo] = []
 
     @property
@@ -147,7 +139,7 @@ class Scheduler:
                     end_time_str = minutes_to_time(end_val, now)
 
                     if getattr(task, "is_routine", False):
-                        result.scheduled_routines.append(ScheduledRoutine(task, start_time_str, end_time_str))
+                        result.scheduled_routines.append(ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible"))
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
                         if task.chunks:
@@ -165,7 +157,18 @@ class Scheduler:
             if routine_info:
                 for r in routine_info:
                     if r["type"] == "fixed":
-                        result.fixed_routines.append(FixedRoutine(r["name"], r["day"], r["time"], r["duration"]))
+                        t_val = r["time"].time() if hasattr(r["time"], "time") else r["time"]
+                        if isinstance(t_val, str):
+                            t_val = datetime.strptime(t_val, "%H:%M").time()
+                        rt_start = datetime.combine(r["day"], t_val, tzinfo=now.tzinfo)
+                        rt_end = rt_start + r["duration"]
+                        
+                        dummy_task = Task(name=r["name"], duration=r["duration"])
+                        dummy_task.is_routine = True
+                        
+                        result.scheduled_routines.append(
+                            ScheduledRoutine(dummy_task, rt_start, rt_end, routine_type="fixed")
+                        )
                     elif r["type"] == "flexible":
                         result.flexible_routines_info.append(
                             FlexibleRoutineInfo(r["name"], r["day"], r["deadline"], r["duration"])
