@@ -52,7 +52,14 @@ class TestRoutinesSolver(BaseSolverTest):
         A flexible routine must not overlap with existing time blocks.
         We leave only a narrow window and verify the routine fits there.
         """
-        routine = Routine(name="Study", type="flexible", repeat="daily", duration=timedelta(minutes=30), priority=5, deadline_time=time(23, 59))
+        routine = Routine(
+            name="Study",
+            type="flexible",
+            repeat="daily",
+            duration=timedelta(minutes=30),
+            priority=5,
+            deadline_time=time(23, 59),
+        )
         # Block everything except [100, 200]
         time_blocks = [TimeBlock(start=0, end=100, daily=False), TimeBlock(start=200, end=30000, daily=False)]
         now = datetime(2026, 7, 6, 10, 0)
@@ -104,9 +111,16 @@ class TestRoutinesSolver(BaseSolverTest):
         over a low-priority user task.
         """
         routine = Routine(
-            name="Critical", type="flexible", repeat="daily", duration=timedelta(minutes=50), priority=10, deadline_time=time(23, 59)
+            name="Critical",
+            type="flexible",
+            repeat="daily",
+            duration=timedelta(minutes=50),
+            priority=10,
+            deadline_time=time(23, 59),
         )
-        low_task = Task(name="Optional", duration=timedelta(minutes=50), priority=1, break_duration=timedelta(minutes=0))
+        low_task = Task(
+            name="Optional", duration=timedelta(minutes=50), priority=1, break_duration=timedelta(minutes=0)
+        )
         low_task.deadline_min = None
 
         # Only 50 min free → only one of the two can fit
@@ -130,7 +144,9 @@ class TestRoutinesSolver(BaseSolverTest):
         """
         A mix of fixed and flexible routines plus regular tasks should all solve together.
         """
-        fixed_routine = Routine(name="Gym", type="fixed", repeat="daily", duration=timedelta(minutes=60), time=time(7, 0))
+        fixed_routine = Routine(
+            name="Gym", type="fixed", repeat="daily", duration=timedelta(minutes=60), time=time(7, 0)
+        )
         flex_routine = Routine(
             name="Study",
             type="flexible",
@@ -228,7 +244,12 @@ class TestRoutinesSolver(BaseSolverTest):
         even if there is free time today.
         """
         routine = Routine(
-            name="TomorrowTask", type="flexible", repeat="daily", duration=timedelta(minutes=60), priority=5, deadline_time=time(23, 59)
+            name="TomorrowTask",
+            type="flexible",
+            repeat="daily",
+            duration=timedelta(minutes=60),
+            priority=5,
+            deadline_time=time(23, 59),
         )
 
         # now is 10:00 on Day 0

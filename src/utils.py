@@ -33,7 +33,7 @@ def process_time_blocks(time_blocks, now):
         if isinstance(b.start, int) and isinstance(b.end, int):
             processed_blocks.append(b)
             continue
-            
+
         daily = b.daily
 
         dt_start = b.start

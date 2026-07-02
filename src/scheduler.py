@@ -82,10 +82,10 @@ class Scheduler:
         max_horizon_days: int | None = None,
         priority_threshold: int | None = None,
         num_search_workers: int = 1,
-        max_memory_in_mb: int = 256
+        max_memory_in_mb: int = 256,
     ) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
-        
+
         actual_horizon_days = max_horizon_days if max_horizon_days is not None else self.max_horizon_days
         actual_priority_threshold = priority_threshold if priority_threshold is not None else self.priority_threshold
 
@@ -149,7 +149,9 @@ class Scheduler:
                     end_time_str = minutes_to_time(end_val, now)
 
                     if getattr(task, "is_routine", False):
-                        result.scheduled_routines.append(ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible"))
+                        result.scheduled_routines.append(
+                            ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible")
+                        )
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
                         if task.chunks:
@@ -172,10 +174,10 @@ class Scheduler:
                             t_val = datetime.strptime(t_val, "%H:%M").time()
                         rt_start = datetime.combine(r["day"], t_val, tzinfo=now.tzinfo)
                         rt_end = rt_start + r["duration"]
-                        
+
                         dummy_task = Task(name=r["name"], duration=r["duration"])
                         dummy_task.is_routine = True
-                        
+
                         result.scheduled_routines.append(
                             ScheduledRoutine(dummy_task, rt_start, rt_end, routine_type="fixed")
                         )
