@@ -34,7 +34,7 @@ def process_time_blocks(time_blocks, now, step_minutes=1):
         if isinstance(b.start, int) and isinstance(b.end, int):
             processed_blocks.append(b)
             continue
-            
+
         daily = b.daily
 
         dt_start = b.start
@@ -67,7 +67,9 @@ def process_time_blocks(time_blocks, now, step_minutes=1):
             end_min = (dt_end - now).total_seconds() / 60
 
             if end_min > 0:
-                new_block = TimeBlock(start=math.floor(start_min / step_minutes), end=math.ceil(end_min / step_minutes), daily=False)
+                new_block = TimeBlock(
+                    start=math.floor(start_min / step_minutes), end=math.ceil(end_min / step_minutes), daily=False
+                )
                 processed_blocks.append(new_block)
 
     return processed_blocks

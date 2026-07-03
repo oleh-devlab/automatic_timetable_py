@@ -60,7 +60,11 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
 
             elif routine.type == "flexible":
                 if routine.deadline_time:
-                    t_val = routine.deadline_time.time() if hasattr(routine.deadline_time, "time") else routine.deadline_time
+                    t_val = (
+                        routine.deadline_time.time()
+                        if hasattr(routine.deadline_time, "time")
+                        else routine.deadline_time
+                    )
                     deadline_dt = datetime.combine(current_date, t_val, tzinfo=now.tzinfo)
                 else:
                     dt_str = f"{current_date.strftime('%Y-%m-%d')} 23:59"
@@ -87,7 +91,9 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                     t.break_duration_steps = routine.break_duration_steps
                     t.is_routine = True
 
-                    start_of_day_dt = datetime(current_date.year, current_date.month, current_date.day, tzinfo=now.tzinfo)
+                    start_of_day_dt = datetime(
+                        current_date.year, current_date.month, current_date.day, tzinfo=now.tzinfo
+                    )
                     start_steps = math.floor(((start_of_day_dt - now).total_seconds() / 60) / step_minutes)
                     t.start_steps = max(0, start_steps)
 

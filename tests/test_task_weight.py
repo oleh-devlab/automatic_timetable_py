@@ -118,11 +118,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task = Task(name="now", duration=timedelta(minutes=60), priority=5)
         task.deadline_steps = 0
         weight_now = calculate_task_weight(task, priority_threshold=10)
-        
+
         task_later = Task(name="later", duration=timedelta(minutes=60), priority=5)
         task_later.deadline_steps = 1440
         weight_later = calculate_task_weight(task_later, priority_threshold=10)
-        
+
         self.assertGreater(weight_now, weight_later)
 
     def test_very_distant_deadline(self):
@@ -130,11 +130,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
         task1 = Task(name="far1", duration=timedelta(minutes=60), priority=5)
         task1.deadline_steps = 1440 * 4000  # ~11 years
         weight1 = calculate_task_weight(task1, priority_threshold=10)
-        
+
         task2 = Task(name="far2", duration=timedelta(minutes=60), priority=5)
         task2.deadline_steps = 1440 * 5000  # ~13 years
         weight2 = calculate_task_weight(task2, priority_threshold=10)
-        
+
         # Both should be clamped, so their weights should be exactly equal
         self.assertEqual(weight1, weight2)
 

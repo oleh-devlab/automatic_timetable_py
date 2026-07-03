@@ -26,12 +26,12 @@ class TestDependencies(BaseSolverTest):
     def test_dependency_with_chunks(self):
         """Task B depends on chunked Task A. B starts after the LAST chunk of A."""
         task_a = Task(
-            name="A", 
-            id=1, 
-            duration=timedelta(minutes=120), 
-            min_chunk_duration=timedelta(minutes=30), 
+            name="A",
+            id=1,
+            duration=timedelta(minutes=120),
+            min_chunk_duration=timedelta(minutes=30),
             max_chunk_duration=timedelta(minutes=60),
-            break_duration=timedelta(minutes=10)
+            break_duration=timedelta(minutes=10),
         )
         task_b = Task(name="B", id=2, duration=timedelta(minutes=30), depends_on=[1])
 
@@ -44,7 +44,7 @@ class TestDependencies(BaseSolverTest):
         b_start = solver.value(task_b.start_var)
 
         self.assertGreaterEqual(b_start, a_end, "Task B must start after the final chunk of Task A ends")
-        
+
         # Verify A actually got chunked
         present_chunks, _ = self._get_present_and_absent_chunks(solver, task_a)
         self.assertGreater(len(present_chunks), 1, "Task A should be chunked")
@@ -54,8 +54,8 @@ class TestDependencies(BaseSolverTest):
         # A has an impossible deadline
         task_a = Task(name="A", id=1, duration=timedelta(minutes=60))
         # We manually set deadline_steps after initialization like other tests do
-        task_a.deadline_steps = 10 
-        
+        task_a.deadline_steps = 10
+
         task_b = Task(name="B", id=2, duration=timedelta(minutes=30), depends_on=[1])
 
         solver = self._solve([task_a, task_b])
@@ -72,7 +72,7 @@ class TestDependencies(BaseSolverTest):
         solver = self._solve([task_a, task_b, task_c])
 
         self.assertTrue(solver.value(task_c.presence_var), "Task C should be scheduled")
-        
+
         a_end = solver.value(task_a.end_var)
         b_end = solver.value(task_b.end_var)
         c_start = solver.value(task_c.start_var)
@@ -81,28 +81,30 @@ class TestDependencies(BaseSolverTest):
         self.assertGreaterEqual(c_start, b_end, "Task C must start after B ends")
 
     def test_routine_depends_on_routine(self):
-        """Routine B depends on Routine A. After expansion, B should start after A on the same day."""        
+        """Routine B depends on Routine A. After expansion, B should start after A on the same day."""
         routine_a = Routine(name="Routine A", id=10, type="flexible", repeat="daily", duration=timedelta(minutes=20))
-        routine_b = Routine(name="Routine B", id=11, type="flexible", repeat="daily", duration=timedelta(minutes=30), depends_on=[10])
-        
+        routine_b = Routine(
+            name="Routine B", id=11, type="flexible", repeat="daily", duration=timedelta(minutes=30), depends_on=[10]
+        )
+
         routine_a.duration_steps = 20
         routine_a.break_duration_steps = 0
         routine_b.duration_steps = 30
         routine_b.break_duration_steps = 0
-        
+
         now = datetime(2026, 7, 6, 10, 0)
         extra_tasks, _, _ = expand_routines([routine_a, routine_b], now, horizon_minutes=1440, step_minutes=1)
-        
+
         # extra_tasks should contain tasks for A and B.
         solver = self._solve(extra_tasks)
-        
+
         task_a = next(t for t in extra_tasks if t.name.startswith("Routine A"))
         task_b = next(t for t in extra_tasks if t.name.startswith("Routine B"))
-        
+
         self.assertTrue(solver.value(task_a.presence_var))
         self.assertTrue(solver.value(task_b.presence_var))
-        
+
         a_end = solver.value(task_a.end_var)
         b_start = solver.value(task_b.start_var)
-        
+
         self.assertGreaterEqual(b_start, a_end, "Routine B must start after Routine A on the same day")

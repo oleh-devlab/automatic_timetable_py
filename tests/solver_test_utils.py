@@ -3,13 +3,15 @@ from ortools.sat.python import cp_model
 from src.restrictions import create_model
 import math
 
+
 class BaseSolverTest(unittest.TestCase):
     """
     Base test class providing helper methods and shared configuration
     for solving and validating CP-SAT scheduling models.
     """
+
     def setUp(self):
-        self.step_minutes = getattr(self, 'step_minutes', 1)
+        self.step_minutes = getattr(self, "step_minutes", 1)
 
     def _solve(self, tasks, time_blocks=None, priority_threshold=10):
         """
@@ -20,15 +22,19 @@ class BaseSolverTest(unittest.TestCase):
             task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
             task.break_duration_steps = math.ceil(task.break_duration.total_seconds() / 60 / self.step_minutes)
             if task.min_chunk_duration:
-                task.min_chunk_duration_steps = math.ceil(task.min_chunk_duration.total_seconds() / 60 / self.step_minutes)
+                task.min_chunk_duration_steps = math.ceil(
+                    task.min_chunk_duration.total_seconds() / 60 / self.step_minutes
+                )
             if task.max_chunk_duration:
-                task.max_chunk_duration_steps = math.ceil(task.max_chunk_duration.total_seconds() / 60 / self.step_minutes)
+                task.max_chunk_duration_steps = math.ceil(
+                    task.max_chunk_duration.total_seconds() / 60 / self.step_minutes
+                )
 
         if time_blocks is None:
             time_blocks = []
         else:
             for tb in time_blocks:
-                if not getattr(tb, '_scaled', False):
+                if not getattr(tb, "_scaled", False):
                     tb.start = math.floor(tb.start / self.step_minutes)
                     tb.end = math.ceil(tb.end / self.step_minutes)
                     tb._scaled = True
@@ -40,8 +46,10 @@ class BaseSolverTest(unittest.TestCase):
         solver.parameters.num_search_workers = 1
 
         status = solver.solve(model)
-        self.assertIn(status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 1")
-        
+        self.assertIn(
+            status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 1"
+        )
+
         # Stage 2: Gravity
         for task in tasks:
             if hasattr(task, "presence_var"):
@@ -51,11 +59,13 @@ class BaseSolverTest(unittest.TestCase):
                 for chunk in task.chunks:
                     val = solver.value(chunk["presence_var"])
                     model.add(chunk["presence_var"] == val)
-                    
+
         if hasattr(model, "time_bonus_terms"):
             model.maximize(sum(model.time_bonus_terms))
             status = solver.solve(model)
-            self.assertIn(status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 2")
+            self.assertIn(
+                status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 2"
+            )
 
         self._assert_invariants(solver, tasks, time_blocks)
         return solver

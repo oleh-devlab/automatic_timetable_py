@@ -53,7 +53,7 @@ class ScheduleResult:
             self.status = f"{packer_status_name} (Packer) / {gravity_status_name} (Gravity)"
         else:
             self.status = packer_status_name
-            
+
         self.scheduled_tasks: list[ScheduledTask] = []
         self.skipped_tasks: list[SkippedTask] = []
         self.scheduled_routines: list[ScheduledRoutine] = []
@@ -92,10 +92,10 @@ class Scheduler:
         max_horizon_days: int | None = None,
         priority_threshold: int | None = None,
         num_search_workers: int = 1,
-        max_memory_in_mb: int = 256
+        max_memory_in_mb: int = 256,
     ) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
-        
+
         # Round 'now' UP (ceil) to the nearest step_minutes
         if self.step_minutes > 1:
             minute_remainder = now.minute % self.step_minutes
@@ -103,7 +103,6 @@ class Scheduler:
                 minutes_to_add = self.step_minutes - minute_remainder
                 now += timedelta(minutes=minutes_to_add)
 
-        
         actual_horizon_days = max_horizon_days if max_horizon_days is not None else self.max_horizon_days
         actual_priority_threshold = priority_threshold if priority_threshold is not None else self.priority_threshold
 
@@ -112,9 +111,13 @@ class Scheduler:
             task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
             task.break_duration_steps = math.ceil(task.break_duration.total_seconds() / 60 / self.step_minutes)
             if task.min_chunk_duration:
-                task.min_chunk_duration_steps = math.ceil(task.min_chunk_duration.total_seconds() / 60 / self.step_minutes)
+                task.min_chunk_duration_steps = math.ceil(
+                    task.min_chunk_duration.total_seconds() / 60 / self.step_minutes
+                )
             if task.max_chunk_duration:
-                task.max_chunk_duration_steps = math.ceil(task.max_chunk_duration.total_seconds() / 60 / self.step_minutes)
+                task.max_chunk_duration_steps = math.ceil(
+                    task.max_chunk_duration.total_seconds() / 60 / self.step_minutes
+                )
 
             if getattr(task, "deadline", None) is not None:
                 dt_deadline = task.deadline
@@ -147,7 +150,7 @@ class Scheduler:
             max_horizon_days=actual_horizon_days,
             priority_threshold=actual_priority_threshold,
             horizon=horizon,
-            step_minutes=self.step_minutes
+            step_minutes=self.step_minutes,
         )
 
         # Stage 1: Packer
@@ -170,11 +173,11 @@ class Scheduler:
                     for chunk in task.chunks:
                         val = solver.value(chunk["presence_var"])
                         model.add(chunk["presence_var"] == val)
-            
+
             # 2. Set new objective for time placement
             if hasattr(model, "time_bonus_terms"):
                 model.maximize(sum(model.time_bonus_terms))
-                
+
                 # Re-solve (reusing the same solver instance limits time globally)
                 gravity_status = solver.solve(model)
 
@@ -193,7 +196,9 @@ class Scheduler:
                     end_time_str = minutes_to_time(end_val, now)
 
                     if getattr(task, "is_routine", False):
-                        result.scheduled_routines.append(ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible"))
+                        result.scheduled_routines.append(
+                            ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible")
+                        )
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
                         if task.chunks:
@@ -220,10 +225,10 @@ class Scheduler:
                             t_val = datetime.strptime(t_val, "%H:%M").time()
                         rt_start = datetime.combine(r["day"], t_val, tzinfo=now.tzinfo)
                         rt_end = rt_start + r["duration"]
-                        
+
                         dummy_task = Task(name=r["name"], duration=r["duration"])
                         dummy_task.is_routine = True
-                        
+
                         result.scheduled_routines.append(
                             ScheduledRoutine(dummy_task, rt_start, rt_end, routine_type="fixed")
                         )

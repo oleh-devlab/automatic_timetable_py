@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 from datetime import datetime, time, timedelta
+
+
 @dataclass
 class Task:
     name: str
@@ -19,7 +21,7 @@ class Task:
     end_var: Any | None = field(init=False, default=None)
     interval_var: Any | None = field(init=False, default=None)
     presence_var: Any | None = field(init=False, default=None)
-    
+
     duration_steps: int = field(init=False, default=0)
     break_duration_steps: int = field(init=False, default=0)
     min_chunk_duration_steps: int | None = field(init=False, default=None)
@@ -58,6 +60,6 @@ class Routine:
     weekdays: list[int] | None = None
     priority: int = 1
     break_duration: timedelta = field(default_factory=timedelta)
-    
+
     duration_steps: int = field(init=False, default=0)
     break_duration_steps: int = field(init=False, default=0)
