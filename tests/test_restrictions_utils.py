@@ -11,7 +11,10 @@ class TestCalculateHorizon(unittest.TestCase):
         When base_horizon * 3 + 1440 is LESS than max_horizon_days * 1440,
         it should return max_horizon_days * 1440.
         """
-        tasks_small = [Task(name="Task 1", duration=timedelta(minutes=30)), Task(name="Task 2", duration=timedelta(minutes=30))]
+        tasks_small = [
+            Task(name="Task 1", duration=timedelta(minutes=30)),
+            Task(name="Task 2", duration=timedelta(minutes=30)),
+        ]
         for t in tasks_small:
             t.duration_steps = int(t.duration.total_seconds() / 60)
         # max_horizon_days = 14 -> 14 * 1440 = 20160
@@ -24,7 +27,10 @@ class TestCalculateHorizon(unittest.TestCase):
         When base_horizon * 3 + 1440 is GREATER than max_horizon_days * 1440,
         it should return base_horizon * 3 + 1440.
         """
-        tasks_large = [Task(name="Task 1", duration=timedelta(minutes=500)), Task(name="Task 2", duration=timedelta(minutes=500))]
+        tasks_large = [
+            Task(name="Task 1", duration=timedelta(minutes=500)),
+            Task(name="Task 2", duration=timedelta(minutes=500)),
+        ]
         for t in tasks_large:
             t.duration_steps = int(t.duration.total_seconds() / 60)
         # max_horizon_days = 2 -> 2 * 1440 = 2880

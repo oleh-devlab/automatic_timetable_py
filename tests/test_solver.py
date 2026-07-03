@@ -20,7 +20,13 @@ class TestSolver(BaseSolverTest):
           3. No chunk (except possibly the last present one) is smaller than min_chunk_duration.
           4. Unused chunks have size 0 and presence False.
         """
-        task = Task(name="chunked_task", duration=timedelta(minutes=120), min_chunk_duration=timedelta(minutes=25), max_chunk_duration=timedelta(minutes=50), break_duration=timedelta(minutes=5))
+        task = Task(
+            name="chunked_task",
+            duration=timedelta(minutes=120),
+            min_chunk_duration=timedelta(minutes=25),
+            max_chunk_duration=timedelta(minutes=50),
+            break_duration=timedelta(minutes=5),
+        )
 
         solver = self._solve([task])
 
@@ -55,7 +61,11 @@ class TestSolver(BaseSolverTest):
              the end time of the previous chunk (end_var) plus task.break_duration.
         """
         task = Task(
-            name="task_with_breaks", duration=timedelta(minutes=100), min_chunk_duration=timedelta(minutes=20), max_chunk_duration=timedelta(minutes=30), break_duration=timedelta(minutes=15)
+            name="task_with_breaks",
+            duration=timedelta(minutes=100),
+            min_chunk_duration=timedelta(minutes=20),
+            max_chunk_duration=timedelta(minutes=30),
+            break_duration=timedelta(minutes=15),
         )
 
         solver = self._solve([task])
@@ -139,7 +149,9 @@ class TestSolver(BaseSolverTest):
             "The task should be scheduled even if its break overlaps with the blocked interval",
         )
 
-        self.assertEqual(solver.value(task.end_var) * self.step_minutes, 50, "Task must end at 50, touching the blocked interval")
+        self.assertEqual(
+            solver.value(task.end_var) * self.step_minutes, 50, "Task must end at 50, touching the blocked interval"
+        )
 
     def test_the_squeeze_dropping(self):
         """
@@ -177,7 +189,7 @@ class TestSolver(BaseSolverTest):
         # For a single task of 100 min: max(100*3 + 1440, 14*1440) = 20160
         task = Task(name="edge_task", duration=timedelta(minutes=100), break_duration=timedelta(minutes=30))
         # set duration_min manually for calculate_horizon because we don't have _solve yet
-        
+
         task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
         expected_horizon_steps = calculate_horizon([task], step_minutes=self.step_minutes)
         expected_horizon_min = expected_horizon_steps * self.step_minutes
@@ -202,7 +214,13 @@ class TestSolver(BaseSolverTest):
           1. The Task class constructor raises a ValueError.
         """
         with self.assertRaises(ValueError):
-            Task(name="impossible", duration=timedelta(minutes=100), min_chunk_duration=timedelta(minutes=60), max_chunk_duration=timedelta(minutes=40), break_duration=timedelta(minutes=5))
+            Task(
+                name="impossible",
+                duration=timedelta(minutes=100),
+                min_chunk_duration=timedelta(minutes=60),
+                max_chunk_duration=timedelta(minutes=40),
+                break_duration=timedelta(minutes=5),
+            )
 
     def test_chunked_task_schedules_when_plenty_of_free_time(self):
         """
@@ -244,7 +262,12 @@ class TestSolver(BaseSolverTest):
         Verify that when task.duration == task.min_chunk_duration,
         needs_chunking is False and the task is NOT split.
         """
-        task = Task(name="no_split", duration=timedelta(minutes=30), min_chunk_duration=timedelta(minutes=30), max_chunk_duration=timedelta(minutes=30))
+        task = Task(
+            name="no_split",
+            duration=timedelta(minutes=30),
+            min_chunk_duration=timedelta(minutes=30),
+            max_chunk_duration=timedelta(minutes=30),
+        )
         solver = self._solve([task])
         self.assertTrue(solver.value(task.presence_var))
         # if it wasn't chunked, task.chunks will be empty
@@ -285,7 +308,13 @@ class TestSolver(BaseSolverTest):
         Checks: The transition between any chunk of Task A and Task B
         respects the appropriate break_duration (the extended interval).
         """
-        task_a = Task(name="chunked", duration=timedelta(minutes=90), min_chunk_duration=timedelta(minutes=30), max_chunk_duration=timedelta(minutes=30), break_duration=timedelta(minutes=15))
+        task_a = Task(
+            name="chunked",
+            duration=timedelta(minutes=90),
+            min_chunk_duration=timedelta(minutes=30),
+            max_chunk_duration=timedelta(minutes=30),
+            break_duration=timedelta(minutes=15),
+        )
         task_b = Task(name="solid", duration=timedelta(minutes=60), break_duration=timedelta(minutes=20))
 
         solver = self._solve([task_a, task_b])
@@ -333,7 +362,13 @@ class TestSolver(BaseSolverTest):
         time_blocks = [TimeBlock(start=10, end=30000, daily=False)]
 
         # Task requires 60 min, chunked into pieces of 20
-        task = Task(name="big_chunked", duration=timedelta(minutes=60), min_chunk_duration=timedelta(minutes=20), max_chunk_duration=timedelta(minutes=20), break_duration=timedelta(minutes=5))
+        task = Task(
+            name="big_chunked",
+            duration=timedelta(minutes=60),
+            min_chunk_duration=timedelta(minutes=20),
+            max_chunk_duration=timedelta(minutes=20),
+            break_duration=timedelta(minutes=5),
+        )
 
         solver = self._solve([task], time_blocks=time_blocks)
 

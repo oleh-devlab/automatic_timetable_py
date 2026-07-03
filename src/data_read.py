@@ -8,10 +8,12 @@ def _parse_datetime(dt_str: str | None) -> datetime | None:
         return datetime.strptime(dt_str, "%d.%m.%Y %H:%M")
     return None
 
+
 def _parse_time(t_str: str | None):
     if t_str:
         return datetime.strptime(t_str, "%H:%M").time()
     return None
+
 
 def load_data(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
@@ -25,18 +27,18 @@ def load_data(filepath):
             depends_on=t.get("depends_on", []),
             deadline=_parse_datetime(t.get("deadline")),
             priority=t.get("priority", 0),
-            min_chunk_duration=timedelta(minutes=t["min_chunk_duration"]) if t.get("min_chunk_duration") is not None else None,
-            max_chunk_duration=timedelta(minutes=t["max_chunk_duration"]) if t.get("max_chunk_duration") is not None else None,
+            min_chunk_duration=(
+                timedelta(minutes=t["min_chunk_duration"]) if t.get("min_chunk_duration") is not None else None
+            ),
+            max_chunk_duration=(
+                timedelta(minutes=t["max_chunk_duration"]) if t.get("max_chunk_duration") is not None else None
+            ),
             break_duration=timedelta(minutes=t.get("break_duration", 0)),
         )
         for t in data.get("user_tasks", [])
     ]
     time_blocks = [
-        TimeBlock(
-            start=_parse_datetime(b["start"]), 
-            end=_parse_datetime(b["end"]), 
-            daily=b.get("daily", True)
-        ) 
+        TimeBlock(start=_parse_datetime(b["start"]), end=_parse_datetime(b["end"]), daily=b.get("daily", True))
         for b in data.get("time_blocks", [])
     ]
 

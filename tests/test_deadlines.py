@@ -59,7 +59,11 @@ class TestDeadlines(BaseSolverTest):
         before the deadline.
         """
         task = Task(
-            name="chunked_deadline", duration=timedelta(minutes=100), min_chunk_duration=timedelta(minutes=20), max_chunk_duration=timedelta(minutes=40), break_duration=timedelta(minutes=5)
+            name="chunked_deadline",
+            duration=timedelta(minutes=100),
+            min_chunk_duration=timedelta(minutes=20),
+            max_chunk_duration=timedelta(minutes=40),
+            break_duration=timedelta(minutes=5),
         )
         task.deadline_steps = 500
 
@@ -78,7 +82,13 @@ class TestDeadlines(BaseSolverTest):
         Minimum time needed: e.g. 3 chunks (40+40+20) + 2 breaks (5+5) = 110 min.
         Deadline at 30 min makes it impossible.
         """
-        task = Task(name="chunked_no_fit", duration=timedelta(minutes=100), min_chunk_duration=timedelta(minutes=20), max_chunk_duration=timedelta(minutes=40), break_duration=timedelta(minutes=5))
+        task = Task(
+            name="chunked_no_fit",
+            duration=timedelta(minutes=100),
+            min_chunk_duration=timedelta(minutes=20),
+            max_chunk_duration=timedelta(minutes=40),
+            break_duration=timedelta(minutes=5),
+        )
         task.deadline_steps = 30
 
         solver = self._solve([task])

@@ -5,6 +5,7 @@ from datetime import datetime
 start_import_time = time.perf_counter()
 import src.data_read as data_read  # noqa: E402
 from src.scheduler import Scheduler  # noqa: E402
+
 end_import_time = time.perf_counter()
 
 
@@ -110,10 +111,14 @@ def main():
                 deadline_info = f", deadline: {st.task.deadline}" if st.task.deadline else ""
                 print(f"  {st.task.name} ({int(st.task.duration.total_seconds() // 60)} min{deadline_info})")
 
-        if hasattr(result, 'skipped_routines') and result.skipped_routines:
+        if hasattr(result, "skipped_routines") and result.skipped_routines:
             print(f"\n--- Skipped routines ({len(result.skipped_routines)}) ---")
             for sr in result.skipped_routines:
-                deadline_info = f", deadline: {sr.task.deadline.strftime('%d.%m %H:%M')}" if getattr(sr.task, 'deadline', None) else ""
+                deadline_info = (
+                    f", deadline: {sr.task.deadline.strftime('%d.%m %H:%M')}"
+                    if getattr(sr.task, "deadline", None)
+                    else ""
+                )
                 print(f"  {sr.task.name} ({int(sr.task.duration.total_seconds() // 60)} min{deadline_info})")
     else:
         print(f"{result.status}")

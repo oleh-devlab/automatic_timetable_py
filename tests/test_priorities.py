@@ -38,7 +38,10 @@ class TestPriorities(BaseSolverTest):
         high = Task(name="uni_hw", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
         high.deadline_steps = None
 
-        lows = [Task(name=f"personal_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)) for i in range(3)]
+        lows = [
+            Task(name=f"personal_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0))
+            for i in range(3)
+        ]
         for t in lows:
             t.deadline_steps = 60  # urgent!
 
@@ -57,10 +60,14 @@ class TestPriorities(BaseSolverTest):
         Within the same tier (Low), when only one task fits,
         the task with the closer deadline should be chosen.
         """
-        task_close = Task(name="urgent", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
+        task_close = Task(
+            name="urgent", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0)
+        )
         task_close.deadline_steps = 100
 
-        task_far = Task(name="not_urgent", duration=timedelta(minutes=60), priority=9, break_duration=timedelta(minutes=0))
+        task_far = Task(
+            name="not_urgent", duration=timedelta(minutes=60), priority=9, break_duration=timedelta(minutes=0)
+        )
         task_far.deadline_steps = 1440 * 7
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
@@ -74,10 +81,14 @@ class TestPriorities(BaseSolverTest):
         """
         Same tier, same deadline: the task with the higher priority wins.
         """
-        task_high_p = Task(name="high_prio", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0))
+        task_high_p = Task(
+            name="high_prio", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0)
+        )
         task_high_p.deadline_steps = 100
 
-        task_low_p = Task(name="low_prio", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
+        task_low_p = Task(
+            name="low_prio", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0)
+        )
         task_low_p.deadline_steps = 100
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
@@ -95,10 +106,17 @@ class TestPriorities(BaseSolverTest):
         of weights), it will choose the three non-urgent tasks to maximize productivity.
         """
         # 60 min free slot
-        urgent_task = Task(name="urgent_but_long", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
+        urgent_task = Task(
+            name="urgent_but_long", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0)
+        )
         urgent_task.deadline_steps = 100  # very close deadline
 
-        non_urgent_tasks = [Task(name=f"non_urgent_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)) for i in range(3)]
+        non_urgent_tasks = [
+            Task(
+                name=f"non_urgent_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)
+            )
+            for i in range(3)
+        ]
         for t in non_urgent_tasks:
             t.deadline_steps = 1440 * 7  # 1 week away
 
@@ -141,31 +159,33 @@ class TestPriorities(BaseSolverTest):
 
         self.assertTrue(solver.value(task.presence_var))
 
-
     # --- Early Placement & Priority 0 ---
 
     def test_early_placement_sorts_by_priority(self):
         """
         If two tasks have the same deadline and tier, the one with
-        higher priority should be scheduled earlier (closer to 0) 
+        higher priority should be scheduled earlier (closer to 0)
         because of the priority-based early placement bonus.
         """
-        task_high_p = Task(name="high_p", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0))
+        task_high_p = Task(
+            name="high_p", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0)
+        )
         task_high_p.deadline_steps = None
-        
+
         task_low_p = Task(name="low_p", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
         task_low_p.deadline_steps = None
-        
+
         solver = self._solve([task_high_p, task_low_p])
-        
+
         self.assertTrue(solver.value(task_high_p.presence_var))
         self.assertTrue(solver.value(task_low_p.presence_var))
-        
+
         start_high = solver.value(task_high_p.start_var)
         start_low = solver.value(task_low_p.start_var)
-        
-        self.assertLess(start_high, start_low, 
-                        "Higher priority task should be scheduled earlier than lower priority task")
+
+        self.assertLess(
+            start_high, start_low, "Higher priority task should be scheduled earlier than lower priority task"
+        )
 
     def test_priority_zero_floats(self):
         """
@@ -173,19 +193,22 @@ class TestPriorities(BaseSolverTest):
         so it doesn't fight for the early slots. It should be placed
         after any task with priority > 0.
         """
-        task_prio_1 = Task(name="prio_1", duration=timedelta(minutes=60), priority=1, break_duration=timedelta(minutes=0))
+        task_prio_1 = Task(
+            name="prio_1", duration=timedelta(minutes=60), priority=1, break_duration=timedelta(minutes=0)
+        )
         task_prio_1.deadline_steps = None
-        
-        task_prio_0 = Task(name="prio_0", duration=timedelta(minutes=60), priority=0, break_duration=timedelta(minutes=0))
+
+        task_prio_0 = Task(
+            name="prio_0", duration=timedelta(minutes=60), priority=0, break_duration=timedelta(minutes=0)
+        )
         task_prio_0.deadline_steps = None
-        
+
         solver = self._solve([task_prio_1, task_prio_0])
-        
+
         start_p1 = solver.value(task_prio_1.start_var)
         start_p0 = solver.value(task_prio_0.start_var)
-        
-        self.assertLess(start_p1, start_p0, 
-                        "Priority > 0 should be scheduled before Priority 0")
+
+        self.assertLess(start_p1, start_p0, "Priority > 0 should be scheduled before Priority 0")
 
 
 if __name__ == "__main__":
