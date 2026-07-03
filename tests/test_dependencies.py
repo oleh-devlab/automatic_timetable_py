@@ -1,5 +1,4 @@
 from datetime import timedelta, datetime
-import unittest
 
 from src.routine_expansion import expand_routines
 from src.data_structs import Task, Routine

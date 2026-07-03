@@ -69,7 +69,7 @@ def calculate_task_weight(task, priority_threshold=5, step_minutes=1):
     priority_step = 1
     deadline_step = 15 
     
-    max_deadline_bonus = 3650 * deadline_step
+    # max_deadline_bonus = 3650 * deadline_step
     
     low_tier_base = 60000
     high_tier_base = low_tier_base * 1000

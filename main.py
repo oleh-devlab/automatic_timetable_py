@@ -1,11 +1,10 @@
 import time
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 start_import_time = time.perf_counter()
 import src.data_read as data_read  # noqa: E402
 from src.scheduler import Scheduler  # noqa: E402
-from src.data_structs import Task, TimeBlock  # noqa: E402
 end_import_time = time.perf_counter()
 
 

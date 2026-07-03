@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, mock_open
 import json
-from datetime import datetime, time, timedelta
+from datetime import time, timedelta
 
 from src.data_read import load_data
 
