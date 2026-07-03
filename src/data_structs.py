@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, date
 
 
 @dataclass
@@ -60,6 +60,7 @@ class Routine:
     weekdays: list[int] | None = None
     priority: int = 1
     break_duration: timedelta = field(default_factory=timedelta)
+    resume_after: date | None = None
 
     duration_steps: int = field(init=False, default=0)
     break_duration_steps: int = field(init=False, default=0)

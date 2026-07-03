@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from .data_structs import Task, TimeBlock, Routine
 
 
@@ -12,6 +12,12 @@ def _parse_datetime(dt_str: str | None) -> datetime | None:
 def _parse_time(t_str: str | None):
     if t_str:
         return datetime.strptime(t_str, "%H:%M").time()
+    return None
+
+
+def _parse_date(d_str: str | None) -> date | None:
+    if d_str:
+        return datetime.strptime(d_str, "%d.%m.%Y").date()
     return None
 
 
@@ -55,6 +61,7 @@ def load_data(filepath):
             weekdays=r.get("weekdays"),
             priority=r.get("priority", 0),
             break_duration=timedelta(minutes=r.get("break_duration", 0)),
+            resume_after=_parse_date(r.get("resume_after")),
         )
         for r in data.get("routines", [])
     ]

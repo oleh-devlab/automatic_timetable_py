@@ -35,6 +35,10 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                 if routine.weekdays is None or current_date.weekday() not in routine.weekdays:
                     continue
 
+            # Check if routine should be skipped
+            if getattr(routine, 'resume_after', None) and current_date <= routine.resume_after:
+                continue
+
             # It's a valid day for this routine
             if routine.type == "fixed":
                 if not routine.time:
