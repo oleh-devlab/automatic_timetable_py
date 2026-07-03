@@ -79,6 +79,8 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                         priority=routine.priority,
                         break_duration=routine.break_duration,
                     )
+                    t.id = f"r_{routine.id}_{current_date}" if routine.id else None
+                    t.depends_on = [f"r_{d}_{current_date}" for d in routine.depends_on] if routine.depends_on else []
                     # Pre-calculate deadline_steps so solver doesn't have to parse it
                     t.deadline_steps = deadline_steps
                     t.duration_steps = routine.duration_steps

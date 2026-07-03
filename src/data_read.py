@@ -21,6 +21,8 @@ def load_data(filepath):
         Task(
             name=t["name"],
             duration=timedelta(minutes=t["duration"]),
+            id=t.get("id"),
+            depends_on=t.get("depends_on", []),
             deadline=_parse_datetime(t.get("deadline")),
             priority=t.get("priority", 0),
             min_chunk_duration=timedelta(minutes=t["min_chunk_duration"]) if t.get("min_chunk_duration") is not None else None,
@@ -44,6 +46,8 @@ def load_data(filepath):
             type=r["type"],
             repeat=r["repeat"],
             duration=timedelta(minutes=r["duration"]),
+            id=r.get("id"),
+            depends_on=r.get("depends_on", []),
             time=_parse_time(r.get("time")),
             deadline_time=_parse_time(r.get("deadline_time")),
             weekdays=r.get("weekdays"),

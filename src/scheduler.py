@@ -57,6 +57,7 @@ class ScheduleResult:
         self.scheduled_tasks: list[ScheduledTask] = []
         self.skipped_tasks: list[SkippedTask] = []
         self.scheduled_routines: list[ScheduledRoutine] = []
+        self.skipped_routines: list[SkippedTask] = []
         self.flexible_routines_info: list[FlexibleRoutineInfo] = []
         self.horizon: int = 0
 
@@ -177,16 +178,8 @@ class Scheduler:
                 # Re-solve (reusing the same solver instance limits time globally)
                 gravity_status = solver.solve(model)
 
-        # Parse results
-        def status_to_str(s):
-            match s:
-                case cp_model.OPTIMAL: return "OPTIMAL"
-                case cp_model.FEASIBLE: return "FEASIBLE"
-                case cp_model.UNKNOWN: return "UNKNOWN"
-                case _: return "INFEASIBLE"
-
-        packer_str = status_to_str(packer_status)
-        gravity_str = status_to_str(gravity_status) if gravity_status is not None else None
+        packer_str = solver.status_name(packer_status)
+        gravity_str = solver.status_name(gravity_status) if gravity_status is not None else None
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
         result.horizon = horizon * self.step_minutes
@@ -216,6 +209,8 @@ class Scheduler:
                 else:
                     if not getattr(task, "is_routine", False):
                         result.skipped_tasks.append(SkippedTask(task))
+                    else:
+                        result.skipped_routines.append(SkippedTask(task))
 
             if routine_info:
                 for r in routine_info:

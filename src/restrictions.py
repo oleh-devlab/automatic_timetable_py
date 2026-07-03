@@ -231,6 +231,24 @@ def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshol
             else:
                 model.add(task.end_var <= task.deadline_steps).only_enforce_if(task.presence_var)
 
+    # Dependency constraints
+    task_by_id = {task.id: task for task in user_tasks if getattr(task, "id", None) is not None}
+    
+    for task_b in user_tasks:
+        if not getattr(task_b, "depends_on", None):
+            continue
+            
+        for dep_id in task_b.depends_on:
+            task_a = task_by_id.get(dep_id)
+            if not task_a:
+                continue
+                
+            # Rule 1: If B is scheduled, A MUST be scheduled
+            model.add_implication(task_b.presence_var, task_a.presence_var)
+            
+            # Rule 2: If B is scheduled, B starts after A ends
+            model.add(task_b.start_var >= task_a.end_var).only_enforce_if(task_b.presence_var)
+
     # Stage 1: Packer objective (only fixed weight)
     presence_terms = []
     

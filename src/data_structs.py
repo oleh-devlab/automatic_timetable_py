@@ -5,6 +5,8 @@ from datetime import datetime, time, timedelta
 class Task:
     name: str
     duration: timedelta
+    id: int | str | None = None
+    depends_on: list[int | str] = field(default_factory=list)
     deadline: datetime | None = None
     priority: int = 1
     min_chunk_duration: timedelta | None = None
@@ -49,6 +51,8 @@ class Routine:
     type: str
     repeat: str
     duration: timedelta
+    id: int | None = None
+    depends_on: list[int] = field(default_factory=list)
     time: time | datetime | None = None
     deadline_time: time | datetime | None = None
     weekdays: list[int] | None = None
