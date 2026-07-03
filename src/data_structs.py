@@ -11,12 +11,18 @@ class Task:
     max_chunk_duration: timedelta | None = None
     break_duration: timedelta = field(default_factory=timedelta)
 
-    start_min: int = field(init=False, default=0)
+    start_steps: int = field(init=False, default=0)
 
     start_var: Any | None = field(init=False, default=None)
     end_var: Any | None = field(init=False, default=None)
     interval_var: Any | None = field(init=False, default=None)
     presence_var: Any | None = field(init=False, default=None)
+    
+    duration_steps: int = field(init=False, default=0)
+    break_duration_steps: int = field(init=False, default=0)
+    min_chunk_duration_steps: int | None = field(init=False, default=None)
+    max_chunk_duration_steps: int | None = field(init=False, default=None)
+    deadline_steps: int | None = field(init=False, default=None)
 
     chunks: list = field(init=False, default_factory=list)
 
@@ -28,22 +34,6 @@ class Task:
                 raise ValueError(
                     f"Task '{self.name}': min_chunk_duration ({self.min_chunk_duration}) cannot be greater than max_chunk_duration ({self.max_chunk_duration})"
                 )
-
-    @property
-    def duration_min(self) -> int:
-        return int(self.duration.total_seconds() // 60)
-
-    @property
-    def break_duration_min(self) -> int:
-        return int(self.break_duration.total_seconds() // 60)
-
-    @property
-    def min_chunk_duration_min(self) -> int | None:
-        return int(self.min_chunk_duration.total_seconds() // 60) if self.min_chunk_duration else None
-
-    @property
-    def max_chunk_duration_min(self) -> int | None:
-        return int(self.max_chunk_duration.total_seconds() // 60) if self.max_chunk_duration else None
 
 
 @dataclass
@@ -64,11 +54,6 @@ class Routine:
     weekdays: list[int] | None = None
     priority: int = 1
     break_duration: timedelta = field(default_factory=timedelta)
-
-    @property
-    def duration_min(self) -> int:
-        return int(self.duration.total_seconds() // 60)
-
-    @property
-    def break_duration_min(self) -> int:
-        return int(self.break_duration.total_seconds() // 60)
+    
+    duration_steps: int = field(init=False, default=0)
+    break_duration_steps: int = field(init=False, default=0)

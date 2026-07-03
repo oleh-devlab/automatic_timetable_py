@@ -1,6 +1,8 @@
 from datetime import timedelta
 import unittest
+import math
 
+from src.restrictions import calculate_horizon
 from src.data_structs import Task, TimeBlock
 from tests.solver_test_utils import BaseSolverTest
 
@@ -29,15 +31,15 @@ class TestSolver(BaseSolverTest):
 
         # 1. Sum of present chunk sizes == total task duration
         total_size = sum(solver.value(c["size_var"]) for c in present)
-        self.assertEqual(total_size, task.duration_min)
+        self.assertEqual(total_size, task.duration_steps)
 
         # 2. No chunk exceeds max_chunk_duration
         for c in present:
-            self.assertLessEqual(solver.value(c["size_var"]), task.max_chunk_duration_min)
+            self.assertLessEqual(solver.value(c["size_var"]), task.max_chunk_duration_steps)
 
         # 3. No non-last chunk is smaller than min_chunk_duration
         for c in present[:-1]:
-            self.assertGreaterEqual(solver.value(c["size_var"]), task.min_chunk_duration_min)
+            self.assertGreaterEqual(solver.value(c["size_var"]), task.min_chunk_duration_steps)
 
         # 4. Unused chunks have size 0 and presence False
         for c in absent:
@@ -72,7 +74,7 @@ class TestSolver(BaseSolverTest):
 
             self.assertGreaterEqual(
                 next_start,
-                curr_end + task.break_duration_min,
+                curr_end + task.break_duration_steps,
                 f"Chunk {i+1} starts at {next_start}, but chunk {i} ended at {curr_end} "
                 f"with a break duration of {task.break_duration}.",
             )
@@ -104,14 +106,14 @@ class TestSolver(BaseSolverTest):
             # A comes before B
             self.assertGreaterEqual(
                 b_start,
-                a_end + task_a.break_duration_min,
+                a_end + task_a.break_duration_steps,
                 f"Task B (starts {b_start}) should respect Task A's break (ends {a_end}, break {task_a.break_duration})",
             )
         else:
             # B comes before A
             self.assertGreaterEqual(
                 a_start,
-                b_end + task_b.break_duration_min,
+                b_end + task_b.break_duration_steps,
                 f"Task A (starts {a_start}) should respect Task B's break (ends {b_end}, break {task_b.break_duration})",
             )
 
@@ -137,7 +139,7 @@ class TestSolver(BaseSolverTest):
             "The task should be scheduled even if its break overlaps with the blocked interval",
         )
 
-        self.assertEqual(solver.value(task.end_var), 50, "Task must end at 50, touching the blocked interval")
+        self.assertEqual(solver.value(task.end_var) * self.step_minutes, 50, "Task must end at 50, touching the blocked interval")
 
     def test_the_squeeze_dropping(self):
         """
@@ -173,19 +175,22 @@ class TestSolver(BaseSolverTest):
         """
         # 1. Figure out what the horizon will be.
         # For a single task of 100 min: max(100*3 + 1440, 14*1440) = 20160
-        expected_horizon = 20160
-
         task = Task(name="edge_task", duration=timedelta(minutes=100), break_duration=timedelta(minutes=30))
+        # set duration_min manually for calculate_horizon because we don't have _solve yet
+        
+        task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
+        expected_horizon_steps = calculate_horizon([task], step_minutes=self.step_minutes)
+        expected_horizon_min = expected_horizon_steps * self.step_minutes
 
-        # Force it to the very end. We block from 0 up to expected_horizon - 100.
-        # So the only free time is [20060, 20160] (length 100).
-        time_blocks = [TimeBlock(start=0, end=expected_horizon - 100, daily=False)]
+        # Force it to the very end. We block from 0 up to expected_horizon_min - 100.
+        # So the only free time is [expected_horizon_min - 100, expected_horizon_min] (length 100).
+        time_blocks = [TimeBlock(start=0, end=expected_horizon_min - 100, daily=False)]
 
         solver = self._solve([task], time_blocks=time_blocks)
 
         self.assertTrue(solver.value(task.presence_var), "Task should be scheduled at the edge of the horizon")
         self.assertEqual(
-            solver.value(task.end_var), expected_horizon, "Task should end exactly at the horizon boundary"
+            solver.value(task.end_var), expected_horizon_steps, "Task should end exactly at the horizon boundary"
         )
 
     def test_impossible_math(self):
@@ -227,7 +232,7 @@ class TestSolver(BaseSolverTest):
         # The total duration of scheduled chunks must equal the task duration.
         self.assertEqual(
             sum(solver.value(c["size_var"]) for c in used_chunks),
-            task.duration_min,
+            task.duration_steps,
         )
 
         # Unused chunks must not "steal" any minutes.
@@ -270,8 +275,8 @@ class TestSolver(BaseSolverTest):
         solver = self._solve([task], time_blocks=time_blocks)
 
         self.assertTrue(solver.value(task.presence_var), "Task should schedule into the exact gap")
-        self.assertEqual(solver.value(task.start_var), 100, "Must start exactly at 100")
-        self.assertEqual(solver.value(task.end_var), 130, "Must end exactly at 130")
+        self.assertEqual(solver.value(task.start_var) * self.step_minutes, 100, "Must start exactly at 100")
+        self.assertEqual(solver.value(task.end_var) * self.step_minutes, 130, "Must end exactly at 130")
 
     def test_inter_task_breaks_mixed(self):
         """
@@ -302,14 +307,14 @@ class TestSolver(BaseSolverTest):
                 # B comes before this chunk
                 self.assertGreaterEqual(
                     c_start,
-                    b_end + task_b.break_duration_min,
+                    b_end + task_b.break_duration_steps,
                     f"Chunk of Task A (starts {c_start}) must respect Task B's break (ends {b_end}, break {task_b.break_duration})",
                 )
             else:
                 # This chunk comes before B
                 self.assertGreaterEqual(
                     b_start,
-                    c_end + task_a.break_duration_min,
+                    c_end + task_a.break_duration_steps,
                     f"Task B (starts {b_start}) must respect Task A chunk's break (ends {c_end}, break {task_a.break_duration})",
                 )
 
@@ -341,6 +346,10 @@ class TestSolver(BaseSolverTest):
         for c in absent:
             self.assertFalse(solver.value(c["presence_var"]))
             self.assertEqual(solver.value(c["size_var"]), 0)
+
+
+class TestSolverStep5(TestSolver):
+    step_minutes = 5
 
 
 if __name__ == "__main__":

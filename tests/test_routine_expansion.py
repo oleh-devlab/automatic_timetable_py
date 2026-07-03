@@ -1,8 +1,15 @@
 import unittest
 from datetime import datetime, time, timedelta
+import math
 
 from src.data_structs import Routine
 from src.routine_expansion import expand_routines
+
+def _expand_routines_with_duration(routines, now, horizon):
+    for r in routines:
+        r.duration_steps = math.ceil(r.duration.total_seconds() / 60)
+        r.break_duration_steps = math.ceil(r.break_duration.total_seconds() / 60)
+    return expand_routines(routines, now, horizon)
 
 
 class TestExpandRoutinesFixed(unittest.TestCase):
@@ -15,7 +22,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 3 * 1440  # 3 days
 
-        _, extra_blocks, routine_info = expand_routines([routine], now, horizon)
+        _, extra_blocks, routine_info = _expand_routines_with_duration([routine], now, horizon)
 
         fixed_info = [r for r in routine_info if r["type"] == "fixed"]
         # Day 0 (07:00 already passed at 10:00 — but end_min = -120 which is <=0, skipped)
@@ -33,7 +40,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         now = datetime(2026, 7, 6, 12, 0)  # noon
         horizon = 1440  # 1 day
 
-        _, extra_blocks, _ = expand_routines([routine], now, horizon)
+        _, extra_blocks, _ = _expand_routines_with_duration([routine], now, horizon)
 
         # 06:00 today is -360 min from noon → end_min = -330 → skipped.
         # 06:00 tomorrow is 1080 min from noon → should be included.
@@ -46,7 +53,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 1440
 
-        _, extra_blocks, routine_info = expand_routines([routine], now, horizon)
+        _, extra_blocks, routine_info = _expand_routines_with_duration([routine], now, horizon)
 
         self.assertEqual(len(extra_blocks), 0)
         self.assertEqual(len(routine_info), 0)
@@ -61,7 +68,7 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 7 * 1440  # 7 days
 
-        _, extra_blocks, routine_info = expand_routines([routine], now, horizon)
+        _, extra_blocks, routine_info = _expand_routines_with_duration([routine], now, horizon)
 
         # days = [r["day"] for r in routine_info]
         # Mon=06.07, Fri=10.07, next Mon=13.07
@@ -79,14 +86,14 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 14 * 1440
 
-        _, extra_blocks, routine_info = expand_routines([routine], now, horizon)
+        _, extra_blocks, routine_info = _expand_routines_with_duration([routine], now, horizon)
 
         self.assertEqual(len(extra_blocks), 0)
         self.assertEqual(len(routine_info), 0)
 
 
 class TestExpandRoutinesFlexible(unittest.TestCase):
-    """Tests for expand_routines with flexible routines."""
+    """Tests for _expand_routines_with_duration with flexible routines."""
 
     def test_daily_flexible_generates_tasks_for_each_day(self):
         """A daily flexible routine should produce one Task per day."""
@@ -102,7 +109,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 3 * 1440  # 3 days
 
-        extra_tasks, _, routine_info = expand_routines([routine], now, horizon)
+        extra_tasks, _, routine_info = _expand_routines_with_duration([routine], now, horizon)
 
         flex_info = [r for r in routine_info if r["type"] == "flexible"]
         self.assertGreater(len(extra_tasks), 0)
@@ -117,17 +124,17 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
             self.assertIsNone(task.max_chunk_duration, "Routines should not have chunking")
 
     def test_flexible_deadline_is_set_correctly(self):
-        """The generated Task's deadline_min should match the routine's deadline_time for its day."""
+        """The generated Task's deadline_steps should match the routine's deadline_time for its day."""
         routine = Routine(name="Words", type="flexible", repeat="daily", duration=timedelta(minutes=30), deadline_time=time(18, 0))
         now = datetime(2026, 7, 6, 10, 0)  # 10:00
         horizon = 1440  # 1 day
 
-        extra_tasks, _, _ = expand_routines([routine], now, horizon)
+        extra_tasks, _, _ = _expand_routines_with_duration([routine], now, horizon)
 
         # The first task with a future deadline should be today at 18:00 → 480 min from now
         today_tasks = [t for t in extra_tasks if "(06.07)" in t.name]
         if today_tasks:
-            self.assertEqual(today_tasks[0].deadline_min, 480, "Deadline should be 480 min (8h) from 10:00 to 18:00")
+            self.assertEqual(today_tasks[0].deadline_steps, 480, "Deadline should be 480 min (8h) from 10:00 to 18:00")
 
     def test_flexible_without_deadline_defaults_to_2359(self):
         """A flexible routine without deadline_time should default to 23:59."""
@@ -135,12 +142,12 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 1440
 
-        extra_tasks, _, _ = expand_routines([routine], now, horizon)
+        extra_tasks, _, _ = _expand_routines_with_duration([routine], now, horizon)
 
         today_tasks = [t for t in extra_tasks if "(06.07)" in t.name]
         if today_tasks:
             # 23:59 - 10:00 = 13h59m = 839 min
-            self.assertEqual(today_tasks[0].deadline_min, 839)
+            self.assertEqual(today_tasks[0].deadline_steps, 839)
 
     def test_flexible_past_deadline_today_is_skipped(self):
         """If the deadline for today has already passed, that day's instance is skipped."""
@@ -148,7 +155,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         now = datetime(2026, 7, 6, 12, 0)  # noon
         horizon = 1440
 
-        extra_tasks, _, _ = expand_routines([routine], now, horizon)
+        extra_tasks, _, _ = _expand_routines_with_duration([routine], now, horizon)
 
         # deadline_min for today = 09:00 - 12:00 = -180 → skipped
         today_tasks = [t for t in extra_tasks if "(06.07)" in t.name]
@@ -162,7 +169,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)  # Monday
         horizon = 14 * 1440
 
-        extra_tasks, _, routine_info = expand_routines([routine], now, horizon)
+        extra_tasks, _, routine_info = _expand_routines_with_duration([routine], now, horizon)
 
         for info in routine_info:
             self.assertEqual(
@@ -177,7 +184,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 2 * 1440
 
-        extra_tasks, _, _ = expand_routines([routine], now, horizon)
+        extra_tasks, _, _ = _expand_routines_with_duration([routine], now, horizon)
 
         for task in extra_tasks:
             self.assertRegex(
@@ -186,12 +193,12 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
 
 
 class TestExpandRoutinesEdgeCases(unittest.TestCase):
-    """Edge cases for expand_routines."""
+    """Edge cases for _expand_routines_with_duration."""
 
     def test_empty_routines_list(self):
         """An empty routines list should return empty results."""
         now = datetime(2026, 7, 6, 10, 0)
-        extra_tasks, extra_blocks, routine_info = expand_routines([], now, 1440)
+        extra_tasks, extra_blocks, routine_info = _expand_routines_with_duration([], now, 1440)
 
         self.assertEqual(len(extra_tasks), 0)
         self.assertEqual(len(extra_blocks), 0)
@@ -202,13 +209,13 @@ class TestExpandRoutinesEdgeCases(unittest.TestCase):
         routine = Routine(name="Quick", type="flexible", repeat="daily", duration=timedelta(minutes=10), deadline_time=time(23, 59))
         now = datetime(2026, 7, 6, 10, 0)
 
-        extra_tasks, _, _ = expand_routines([routine], now, 0)
+        extra_tasks, _, _ = _expand_routines_with_duration([routine], now, 0)
 
         # horizon_days = 0 // 1440 + 1 = 1, so range(2) → day 0 and day 1
         # day 0 deadline_min = 839, but deadline_min - duration (829) > horizon (0),
         # so it should be skipped due to horizon check
         for task in extra_tasks:
-            self.assertGreater(task.deadline_min, 0, "All tasks must have future deadlines")
+            self.assertGreater(task.deadline_steps, 0, "All tasks must have future deadlines")
 
     def test_mixed_routines(self):
         """A mix of fixed and flexible routines should produce both blocks and tasks."""
@@ -217,7 +224,7 @@ class TestExpandRoutinesEdgeCases(unittest.TestCase):
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 2 * 1440
 
-        extra_tasks, extra_blocks, routine_info = expand_routines([fixed, flexible], now, horizon)
+        extra_tasks, extra_blocks, routine_info = _expand_routines_with_duration([fixed, flexible], now, horizon)
 
         self.assertGreater(len(extra_blocks), 0, "Fixed routine should produce blocks")
         self.assertGreater(len(extra_tasks), 0, "Flexible routine should produce tasks")

@@ -17,10 +17,10 @@ class TestPriorities(BaseSolverTest):
         """
         # 60 min free slot: [0, 60], then blocked until horizon
         high = Task(name="university", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
-        high.deadline_min = 1440 * 7  # far deadline
+        high.deadline_steps = 1440 * 7  # far deadline
 
         low = Task(name="personal", duration=timedelta(minutes=60), priority=9, break_duration=timedelta(minutes=0))
-        low.deadline_min = 100  # very close deadline
+        low.deadline_steps = 100  # very close deadline
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
 
@@ -36,11 +36,11 @@ class TestPriorities(BaseSolverTest):
         """
         # 60 min free slot
         high = Task(name="uni_hw", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
-        high.deadline_min = None
+        high.deadline_steps = None
 
         lows = [Task(name=f"personal_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)) for i in range(3)]
         for t in lows:
-            t.deadline_min = 60  # urgent!
+            t.deadline_steps = 60  # urgent!
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
 
@@ -58,10 +58,10 @@ class TestPriorities(BaseSolverTest):
         the task with the closer deadline should be chosen.
         """
         task_close = Task(name="urgent", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
-        task_close.deadline_min = 100
+        task_close.deadline_steps = 100
 
         task_far = Task(name="not_urgent", duration=timedelta(minutes=60), priority=9, break_duration=timedelta(minutes=0))
-        task_far.deadline_min = 1440 * 7
+        task_far.deadline_steps = 1440 * 7
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
 
@@ -75,10 +75,10 @@ class TestPriorities(BaseSolverTest):
         Same tier, same deadline: the task with the higher priority wins.
         """
         task_high_p = Task(name="high_prio", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0))
-        task_high_p.deadline_min = 100
+        task_high_p.deadline_steps = 100
 
         task_low_p = Task(name="low_prio", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
-        task_low_p.deadline_min = 100
+        task_low_p.deadline_steps = 100
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
 
@@ -96,11 +96,11 @@ class TestPriorities(BaseSolverTest):
         """
         # 60 min free slot
         urgent_task = Task(name="urgent_but_long", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
-        urgent_task.deadline_min = 100  # very close deadline
+        urgent_task.deadline_steps = 100  # very close deadline
 
         non_urgent_tasks = [Task(name=f"non_urgent_{i}", duration=timedelta(minutes=20), priority=9, break_duration=timedelta(minutes=0)) for i in range(3)]
         for t in non_urgent_tasks:
-            t.deadline_min = 1440 * 7  # 1 week away
+            t.deadline_steps = 1440 * 7  # 1 week away
 
         time_blocks = [TimeBlock(start=60, end=30000, daily=False)]
 
@@ -120,10 +120,10 @@ class TestPriorities(BaseSolverTest):
         regardless of priority or tier.
         """
         high = Task(name="uni", duration=timedelta(minutes=60), priority=10, break_duration=timedelta(minutes=0))
-        high.deadline_min = None
+        high.deadline_steps = None
 
         low = Task(name="personal", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
-        low.deadline_min = None
+        low.deadline_steps = None
 
         solver = self._solve([high, low])
 
@@ -135,7 +135,7 @@ class TestPriorities(BaseSolverTest):
     def test_default_priority_zero(self):
         """Tasks without priority (default 0) should be schedulable."""
         task = Task(name="default", duration=timedelta(minutes=30), break_duration=timedelta(minutes=0))
-        task.deadline_min = None
+        task.deadline_steps = None
 
         solver = self._solve([task])
 
@@ -151,10 +151,10 @@ class TestPriorities(BaseSolverTest):
         because of the priority-based early placement bonus.
         """
         task_high_p = Task(name="high_p", duration=timedelta(minutes=60), priority=8, break_duration=timedelta(minutes=0))
-        task_high_p.deadline_min = None
+        task_high_p.deadline_steps = None
         
         task_low_p = Task(name="low_p", duration=timedelta(minutes=60), priority=2, break_duration=timedelta(minutes=0))
-        task_low_p.deadline_min = None
+        task_low_p.deadline_steps = None
         
         solver = self._solve([task_high_p, task_low_p])
         
@@ -174,10 +174,10 @@ class TestPriorities(BaseSolverTest):
         after any task with priority > 0.
         """
         task_prio_1 = Task(name="prio_1", duration=timedelta(minutes=60), priority=1, break_duration=timedelta(minutes=0))
-        task_prio_1.deadline_min = None
+        task_prio_1.deadline_steps = None
         
         task_prio_0 = Task(name="prio_0", duration=timedelta(minutes=60), priority=0, break_duration=timedelta(minutes=0))
-        task_prio_0.deadline_min = None
+        task_prio_0.deadline_steps = None
         
         solver = self._solve([task_prio_1, task_prio_0])
         

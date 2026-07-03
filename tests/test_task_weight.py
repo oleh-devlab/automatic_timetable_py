@@ -20,11 +20,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
         """
         # Minimum high tier: priority=10, no deadline (days_inverted=0)
         high = Task(name="uni", duration=timedelta(minutes=60), priority=10)
-        high.deadline_min = None
+        high.deadline_steps = None
 
         # Maximum low tier: priority=9, deadline in 0 days (days_inverted=3650)
         low = Task(name="personal", duration=timedelta(minutes=60), priority=9)
-        low.deadline_min = 0  # deadline right now
+        low.deadline_steps = 0  # deadline right now
 
         high_weight = calculate_task_weight(high, priority_threshold=10)
         low_weight = calculate_task_weight(low, priority_threshold=10)
@@ -34,7 +34,7 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_custom_priority_threshold(self):
         """Custom threshold separates tiers at a different level."""
         task = Task(name="t", duration=timedelta(minutes=60), priority=5)
-        task.deadline_min = None
+        task.deadline_steps = None
 
         # With threshold=5, task is High Tier
         weight_high = calculate_task_weight(task, priority_threshold=5)
@@ -48,10 +48,10 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_closer_deadline_has_higher_weight_same_tier(self):
         """Within the same tier, a closer deadline gives a higher weight."""
         task_close = Task(name="urgent", duration=timedelta(minutes=60), priority=3)
-        task_close.deadline_min = 1440  # 1 day
+        task_close.deadline_steps = 1440  # 1 day
 
         task_far = Task(name="distant", duration=timedelta(minutes=60), priority=3)
-        task_far.deadline_min = 1440 * 7  # 7 days
+        task_far.deadline_steps = 1440 * 7  # 7 days
 
         w_close = calculate_task_weight(task_close, priority_threshold=10)
         w_far = calculate_task_weight(task_far, priority_threshold=10)
@@ -65,10 +65,10 @@ class TestCalculateTaskWeight(unittest.TestCase):
         This is the 1-on-1 "deadline dominates" behavior.
         """
         task_close = Task(name="urgent_low_prio", duration=timedelta(minutes=60), priority=1)
-        task_close.deadline_min = 1440  # 1 day
+        task_close.deadline_steps = 1440  # 1 day
 
         task_far = Task(name="not_urgent_high_prio", duration=timedelta(minutes=60), priority=9)
-        task_far.deadline_min = 1440 * 30  # 30 days
+        task_far.deadline_steps = 1440 * 30  # 30 days
 
         w_close = calculate_task_weight(task_close, priority_threshold=10)
         w_far = calculate_task_weight(task_far, priority_threshold=10)
@@ -78,10 +78,10 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_no_deadline_has_lowest_weight_in_tier(self):
         """A task without a deadline gets the lowest weight in its tier."""
         task_with = Task(name="with_dl", duration=timedelta(minutes=60), priority=3)
-        task_with.deadline_min = 1440 * 365  # even 1 year away
+        task_with.deadline_steps = 1440 * 365  # even 1 year away
 
         task_without = Task(name="no_dl", duration=timedelta(minutes=60), priority=3)
-        task_without.deadline_min = None
+        task_without.deadline_steps = None
 
         w_with = calculate_task_weight(task_with, priority_threshold=10)
         w_without = calculate_task_weight(task_without, priority_threshold=10)
@@ -93,10 +93,10 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_priority_is_tiebreaker_for_same_deadline(self):
         """When deadlines are equal, higher priority wins."""
         task_high_prio = Task(name="high_p", duration=timedelta(minutes=60), priority=8)
-        task_high_prio.deadline_min = 1440 * 3
+        task_high_prio.deadline_steps = 1440 * 3
 
         task_low_prio = Task(name="low_p", duration=timedelta(minutes=60), priority=2)
-        task_low_prio.deadline_min = 1440 * 3
+        task_low_prio.deadline_steps = 1440 * 3
 
         w_high = calculate_task_weight(task_high_prio, priority_threshold=10)
         w_low = calculate_task_weight(task_low_prio, priority_threshold=10)
@@ -108,7 +108,7 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_zero_priority(self):
         """Priority 0 (default) should work without errors."""
         task = Task(name="default", duration=timedelta(minutes=60), priority=0)
-        task.deadline_min = None
+        task.deadline_steps = None
         weight = calculate_task_weight(task, priority_threshold=10)
         # Should be low_tier_base + 0
         self.assertGreater(weight, 0)
@@ -116,11 +116,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_deadline_at_zero(self):
         """Deadline at minute 0 (right now) should give maximum urgency within the tier."""
         task = Task(name="now", duration=timedelta(minutes=60), priority=5)
-        task.deadline_min = 0
+        task.deadline_steps = 0
         weight_now = calculate_task_weight(task, priority_threshold=10)
         
         task_later = Task(name="later", duration=timedelta(minutes=60), priority=5)
-        task_later.deadline_min = 1440
+        task_later.deadline_steps = 1440
         weight_later = calculate_task_weight(task_later, priority_threshold=10)
         
         self.assertGreater(weight_now, weight_later)
@@ -128,11 +128,11 @@ class TestCalculateTaskWeight(unittest.TestCase):
     def test_very_distant_deadline(self):
         """A deadline far in the future (> 3650 days) should clamp days_inverted to 0."""
         task1 = Task(name="far1", duration=timedelta(minutes=60), priority=5)
-        task1.deadline_min = 1440 * 4000  # ~11 years
+        task1.deadline_steps = 1440 * 4000  # ~11 years
         weight1 = calculate_task_weight(task1, priority_threshold=10)
         
         task2 = Task(name="far2", duration=timedelta(minutes=60), priority=5)
-        task2.deadline_min = 1440 * 5000  # ~13 years
+        task2.deadline_steps = 1440 * 5000  # ~13 years
         weight2 = calculate_task_weight(task2, priority_threshold=10)
         
         # Both should be clamped, so their weights should be exactly equal

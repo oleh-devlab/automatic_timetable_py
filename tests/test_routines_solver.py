@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, time, timedelta
 from ortools.sat.python import cp_model
+import math
 
 from src.data_structs import Task, TimeBlock, Routine
 from src.restrictions import create_model, calculate_horizon
@@ -18,18 +19,36 @@ class TestRoutinesSolver(BaseSolverTest):
         """
         if user_tasks is None:
             user_tasks = []
+        step_minutes = getattr(self, "step_minutes", 1)
         if time_blocks is None:
             time_blocks = []
+        else:
+            for tb in time_blocks:
+                if not getattr(tb, '_scaled', False):
+                    tb.start = math.floor(tb.start / step_minutes)
+                    tb.end = math.ceil(tb.end / step_minutes)
+                    tb._scaled = True
         if now is None:
             now = datetime(2026, 7, 6, 10, 0)
 
         # Compute deadlines for user tasks
         for task in user_tasks:
+            task.duration_steps = math.ceil(task.duration.total_seconds() / 60)
+            task.break_duration_steps = math.ceil(task.break_duration.total_seconds() / 60)
+            if task.min_chunk_duration:
+                task.min_chunk_duration_steps = math.ceil(task.min_chunk_duration.total_seconds() / 60)
+            if task.max_chunk_duration:
+                task.max_chunk_duration_steps = math.ceil(task.max_chunk_duration.total_seconds() / 60)
+
             if task.deadline is not None:
                 dt = datetime.strptime(task.deadline, "%d.%m.%Y %H:%M")
-                task.deadline_min = int((dt - now).total_seconds() / 60)
+                task.deadline_steps = math.floor((dt - now).total_seconds() / 60)
             else:
-                task.deadline_min = None
+                task.deadline_steps = None
+
+        for routine in routines:
+            routine.duration_steps = math.ceil(routine.duration.total_seconds() / 60)
+            routine.break_duration_steps = math.ceil(routine.break_duration.total_seconds() / 60)
 
         horizon = calculate_horizon(user_tasks, max_horizon_days)
         extra_tasks, extra_blocks, routine_info = expand_routines(routines, now, horizon)
@@ -79,7 +98,7 @@ class TestRoutinesSolver(BaseSolverTest):
         routine = Routine(name="Gym", type="fixed", repeat="daily", duration=timedelta(minutes=60), time=time(11, 0))
         # A task that could fit at 11:00 but shouldn't because the routine blocks it
         task = Task(name="Work", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
-        task.deadline_min = None
+        task.deadline_steps = None
 
         now = datetime(2026, 7, 6, 10, 0)
 
@@ -107,7 +126,7 @@ class TestRoutinesSolver(BaseSolverTest):
             name="Critical", type="flexible", repeat="daily", duration=timedelta(minutes=50), priority=10, deadline_time=time(23, 59)
         )
         low_task = Task(name="Optional", duration=timedelta(minutes=50), priority=1, break_duration=timedelta(minutes=0))
-        low_task.deadline_min = None
+        low_task.deadline_steps = None
 
         # Only 50 min free → only one of the two can fit
         time_blocks = [TimeBlock(start=0, end=100, daily=False), TimeBlock(start=150, end=30000, daily=False)]
@@ -141,7 +160,7 @@ class TestRoutinesSolver(BaseSolverTest):
             break_duration=timedelta(minutes=5),
         )
         task = Task(name="Project", duration=timedelta(minutes=120), break_duration=timedelta(minutes=10))
-        task.deadline_min = None
+        task.deadline_steps = None
 
         now = datetime(2026, 7, 6, 10, 0)
 
@@ -177,7 +196,7 @@ class TestRoutinesSolver(BaseSolverTest):
             break_duration=timedelta(minutes=15),
         )
         task = Task(name="Code", duration=timedelta(minutes=30), break_duration=timedelta(minutes=0))
-        task.deadline_min = None
+        task.deadline_steps = None
 
         now = datetime(2026, 7, 6, 10, 0)
 
@@ -198,14 +217,14 @@ class TestRoutinesSolver(BaseSolverTest):
                 # Routine comes before task → must respect routine's break
                 self.assertGreaterEqual(
                     task_start,
-                    rt_end + rt.break_duration_min,
+                    rt_end + rt.break_duration_steps,
                     f"Task starts at {task_start} but routine ends at {rt_end} with break {rt.break_duration}",
                 )
             elif task_start < rt_start:
                 # Task comes before routine → must respect task's break
                 self.assertGreaterEqual(
                     rt_start,
-                    task_end + task.break_duration_min,
+                    task_end + task.break_duration_steps,
                     f"Routine starts at {rt_start} but task ends at {task_end} with break {task.break_duration}",
                 )
 
@@ -214,7 +233,7 @@ class TestRoutinesSolver(BaseSolverTest):
         When routines list is empty, the solver should work exactly as before.
         """
         task = Task(name="Solo", duration=timedelta(minutes=60), break_duration=timedelta(minutes=0))
-        task.deadline_min = None
+        task.deadline_steps = None
 
         solver, all_tasks, routine_info = self._expand_and_solve([], user_tasks=[task])
 

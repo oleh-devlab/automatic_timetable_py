@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+import math
 from .data_structs import TimeBlock
 
 
@@ -25,7 +26,7 @@ def minutes_to_time(minutes_from_now, now):
     return now + timedelta(minutes=minutes_from_now)
 
 
-def process_time_blocks(time_blocks, now):
+def process_time_blocks(time_blocks, now, step_minutes=1):
     """Process TimeBlock objects, converting string times into minute offsets."""
     processed_blocks = []
     for b in time_blocks:
@@ -54,8 +55,8 @@ def process_time_blocks(time_blocks, now):
                 end_rel = e + k * 1440 - now_min
 
                 if end_rel > 0:
-                    start_min = int(start_rel)
-                    end_min = int(end_rel)
+                    start_min = math.floor(start_rel / step_minutes)
+                    end_min = math.ceil(end_rel / step_minutes)
                     break
 
             new_block = TimeBlock(start=start_min, end=end_min, daily=True)
@@ -66,7 +67,7 @@ def process_time_blocks(time_blocks, now):
             end_min = (dt_end - now).total_seconds() / 60
 
             if end_min > 0:
-                new_block = TimeBlock(start=int(start_min), end=int(end_min), daily=False)
+                new_block = TimeBlock(start=math.floor(start_min / step_minutes), end=math.ceil(end_min / step_minutes), daily=False)
                 processed_blocks.append(new_block)
 
     return processed_blocks

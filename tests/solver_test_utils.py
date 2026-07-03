@@ -1,22 +1,38 @@
 import unittest
 from ortools.sat.python import cp_model
 from src.restrictions import create_model
-
+import math
 
 class BaseSolverTest(unittest.TestCase):
     """
     Base test class providing helper methods and shared configuration
     for solving and validating CP-SAT scheduling models.
     """
+    def setUp(self):
+        self.step_minutes = getattr(self, 'step_minutes', 1)
 
     def _solve(self, tasks, time_blocks=None, priority_threshold=10):
         """
         Helper: builds the model, solves it, and asserts a valid solution was found.
         Returns the solver instance for further assertions.
         """
+        for task in tasks:
+            task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
+            task.break_duration_steps = math.ceil(task.break_duration.total_seconds() / 60 / self.step_minutes)
+            if task.min_chunk_duration:
+                task.min_chunk_duration_steps = math.ceil(task.min_chunk_duration.total_seconds() / 60 / self.step_minutes)
+            if task.max_chunk_duration:
+                task.max_chunk_duration_steps = math.ceil(task.max_chunk_duration.total_seconds() / 60 / self.step_minutes)
+
         if time_blocks is None:
             time_blocks = []
-        model = create_model(tasks, time_blocks, priority_threshold=priority_threshold)
+        else:
+            for tb in time_blocks:
+                if not getattr(tb, '_scaled', False):
+                    tb.start = math.floor(tb.start / self.step_minutes)
+                    tb.end = math.ceil(tb.end / self.step_minutes)
+                    tb._scaled = True
+        model = create_model(tasks, time_blocks, priority_threshold=priority_threshold, step_minutes=self.step_minutes)
         solver = cp_model.CpSolver()
 
         # Test infrastructure limits
@@ -47,10 +63,10 @@ class BaseSolverTest(unittest.TestCase):
     def _assert_invariants(self, solver, tasks, time_blocks):
         from src.restrictions import calculate_horizon, generate_blocked_intervals
 
-        horizon = calculate_horizon(tasks)
+        horizon = calculate_horizon(tasks, step_minutes=self.step_minutes)
 
         strict_intervals = []
-        blocked = generate_blocked_intervals(time_blocks, horizon)
+        blocked = generate_blocked_intervals(time_blocks, horizon, step_minutes=self.step_minutes)
         for b_start, b_end in blocked:
             strict_intervals.append((b_start, b_end, "Blocked"))
 
@@ -68,16 +84,16 @@ class BaseSolverTest(unittest.TestCase):
                 continue
 
             # Deadline invariant: present task must end before its deadline
-            if getattr(task, "deadline_min", None) is not None:
+            if getattr(task, "deadline_steps", None) is not None:
                 end = solver.value(task.end_var)
                 self.assertLessEqual(
-                    end, task.deadline_min, f"Task {task.name} ends at {end} but deadline is {task.deadline_min}"
+                    end, task.deadline_steps, f"Task {task.name} ends at {end} but deadline is {task.deadline_steps}"
                 )
 
             if not task.chunks:
                 start = solver.value(task.start_var)
                 end = solver.value(task.end_var)
-                self.assertEqual(end - start, task.duration_min, f"Task {task.name} duration mismatch")
+                self.assertEqual(end - start, task.duration_steps, f"Task {task.name} duration mismatch")
                 self.assertGreaterEqual(start, 0, f"Task {task.name} starts before 0")
                 self.assertLessEqual(end, horizon, f"Task {task.name} ends after horizon")
                 strict_intervals.append((start, end, f"Task {task.name}"))
@@ -95,7 +111,7 @@ class BaseSolverTest(unittest.TestCase):
                         strict_intervals.append((start, end, f"Task {task.name} Chunk {idx}"))
 
                 total_size = sum(solver.value(c["size_var"]) for _, c in present_chunks)
-                self.assertEqual(total_size, task.duration_min, f"Chunk sizes sum mismatch for {task.name}")
+                self.assertEqual(total_size, task.duration_steps, f"Chunk sizes sum mismatch for {task.name}")
 
                 indices = [idx for idx, _ in present_chunks]
                 self.assertEqual(indices, list(range(len(present_chunks))), f"Chunks have holes in {task.name}")
@@ -106,7 +122,7 @@ class BaseSolverTest(unittest.TestCase):
                     end1 = solver.value(c1["end_var"])
                     start2 = solver.value(c2["start_var"])
                     self.assertGreaterEqual(
-                        start2, end1 + task.break_duration_min, f"Break violated in {task.name} between chunks"
+                        start2, end1 + task.break_duration_steps, f"Break violated in {task.name} between chunks"
                     )
 
         strict_intervals.sort(key=lambda x: x[0])

@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, date, timedelta
 from ortools.sat.python import cp_model
@@ -65,9 +66,10 @@ class ScheduleResult:
 
 
 class Scheduler:
-    def __init__(self, max_horizon_days: int = 14, priority_threshold: int = 5):
+    def __init__(self, max_horizon_days: int = 14, priority_threshold: int = 5, step_minutes: int = 1):
         self.max_horizon_days = max_horizon_days
         self.priority_threshold = priority_threshold
+        self.step_minutes = step_minutes
 
         self.tasks: list[Task] = []
         self.time_blocks: list[TimeBlock] = []
@@ -93,25 +95,45 @@ class Scheduler:
     ) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
         
+        # Round 'now' UP (ceil) to the nearest step_minutes
+        if self.step_minutes > 1:
+            minute_remainder = now.minute % self.step_minutes
+            if minute_remainder != 0:
+                minutes_to_add = self.step_minutes - minute_remainder
+                now += timedelta(minutes=minutes_to_add)
+
+        
         actual_horizon_days = max_horizon_days if max_horizon_days is not None else self.max_horizon_days
         actual_priority_threshold = priority_threshold if priority_threshold is not None else self.priority_threshold
 
-        # Process deadlines for tasks
+        # Process deadlines and duration for tasks
         for task in self.tasks:
+            task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
+            task.break_duration_steps = math.ceil(task.break_duration.total_seconds() / 60 / self.step_minutes)
+            if task.min_chunk_duration:
+                task.min_chunk_duration_steps = math.ceil(task.min_chunk_duration.total_seconds() / 60 / self.step_minutes)
+            if task.max_chunk_duration:
+                task.max_chunk_duration_steps = math.ceil(task.max_chunk_duration.total_seconds() / 60 / self.step_minutes)
+
             if getattr(task, "deadline", None) is not None:
                 dt_deadline = task.deadline
-                task.deadline_min = int((dt_deadline - now).total_seconds() / 60)
+                task.deadline_steps = math.floor((dt_deadline - now).total_seconds() / 60 / self.step_minutes)
             else:
-                task.deadline_min = None
+                task.deadline_steps = None
+
+        # Process routines duration
+        for routine in self.routines:
+            routine.duration_steps = math.ceil(routine.duration.total_seconds() / 60 / self.step_minutes)
+            routine.break_duration_steps = math.ceil(routine.break_duration.total_seconds() / 60 / self.step_minutes)
 
         # Process time blocks
-        processed_blocks = process_time_blocks(self.time_blocks, now)
+        processed_blocks = process_time_blocks(self.time_blocks, now, self.step_minutes)
 
         # Calculate horizon
-        horizon = calculate_horizon(self.tasks, max_horizon_days=actual_horizon_days)
+        horizon = calculate_horizon(self.tasks, max_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
 
         # Expand routines
-        extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon)
+        extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
 
         # Combine base and extra data
         combined_tasks = self.tasks + extra_tasks
@@ -124,6 +146,7 @@ class Scheduler:
             max_horizon_days=actual_horizon_days,
             priority_threshold=actual_priority_threshold,
             horizon=horizon,
+            step_minutes=self.step_minutes
         )
 
         # Stage 1: Packer
@@ -166,13 +189,13 @@ class Scheduler:
         gravity_str = status_to_str(gravity_status) if gravity_status is not None else None
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
-        result.horizon = horizon
+        result.horizon = horizon * self.step_minutes
 
         if result.is_successful:
             for task in combined_tasks:
                 if solver.value(task.presence_var):
-                    start_val = solver.value(task.start_var)
-                    end_val = solver.value(task.end_var)
+                    start_val = solver.value(task.start_var) * self.step_minutes
+                    end_val = solver.value(task.end_var) * self.step_minutes
                     start_time_str = minutes_to_time(start_val, now)
                     end_time_str = minutes_to_time(end_val, now)
 
@@ -183,9 +206,11 @@ class Scheduler:
                         if task.chunks:
                             for chunk in task.chunks:
                                 if solver.value(chunk["presence_var"]):
-                                    cs = minutes_to_time(solver.value(chunk["start_var"]), now)
-                                    ce = minutes_to_time(solver.value(chunk["end_var"]), now)
-                                    csize = solver.value(chunk["size_var"])
+                                    c_start = solver.value(chunk["start_var"]) * self.step_minutes
+                                    c_end = solver.value(chunk["end_var"]) * self.step_minutes
+                                    csize = solver.value(chunk["size_var"]) * self.step_minutes
+                                    cs = minutes_to_time(c_start, now)
+                                    ce = minutes_to_time(c_end, now)
                                     scheduled_task.chunks.append(ScheduledChunk(cs, ce, timedelta(minutes=csize)))
                         result.scheduled_tasks.append(scheduled_task)
                 else:
