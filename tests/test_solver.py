@@ -191,7 +191,7 @@ class TestSolver(BaseSolverTest):
         # set duration_min manually for calculate_horizon because we don't have _solve yet
 
         task.duration_steps = math.ceil(task.duration.total_seconds() / 60 / self.step_minutes)
-        expected_horizon_steps = calculate_horizon([task], step_minutes=self.step_minutes)
+        expected_horizon_steps = calculate_horizon([task], [], step_minutes=self.step_minutes)
         expected_horizon_min = expected_horizon_steps * self.step_minutes
 
         # Force it to the very end. We block from 0 up to expected_horizon_min - 100.

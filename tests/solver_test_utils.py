@@ -73,7 +73,7 @@ class BaseSolverTest(unittest.TestCase):
     def _assert_invariants(self, solver, tasks, time_blocks):
         from src.restrictions import calculate_horizon, generate_blocked_intervals
 
-        horizon = calculate_horizon(tasks, step_minutes=self.step_minutes)
+        horizon = calculate_horizon(tasks, [], step_minutes=self.step_minutes)
 
         strict_intervals = []
         blocked = generate_blocked_intervals(time_blocks, horizon, step_minutes=self.step_minutes)

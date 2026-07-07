@@ -50,7 +50,7 @@ class TestRoutinesSolver(BaseSolverTest):
             routine.duration_steps = math.ceil(routine.duration.total_seconds() / 60)
             routine.break_duration_steps = math.ceil(routine.break_duration.total_seconds() / 60)
 
-        horizon = calculate_horizon(user_tasks, min_horizon_days)
+        horizon = calculate_horizon(user_tasks, [], min_horizon_days)
         extra_tasks, extra_blocks, routine_info = expand_routines(routines, now, horizon)
         user_tasks.extend(extra_tasks)
         time_blocks.extend(extra_blocks)

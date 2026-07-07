@@ -1,3 +1,6 @@
+import math
+import itertools
+import heapq
 from ortools.sat.python import cp_model
 
 from .utils import merge_time_blocks
@@ -5,25 +8,115 @@ from .chunking import calculate_chunks
 from .data_structs import TimeBlock
 
 
-def calculate_horizon(user_tasks, min_horizon_days=14, step_minutes=1):
+def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes=1):
+    """
+    Calculates the safe planning horizon (maximum available time in minutes)
+    """
     if min_horizon_days <= 0:
         raise ValueError(f"min_horizon_days must be greater than 0, got {min_horizon_days}")
-    """
-    Calculates the safe planning horizon (maximum available time in minutes).
-    
-    Args:
-        user_tasks (list[Task]): List of user tasks.
-        min_horizon_days (int, optional): Maximum horizon limit in days.
-        
-    Returns:
-        int: Planning horizon in minutes.
-    """
+
     steps_per_day = 1440 // step_minutes
+    
+    # Calculate a pessimistic safe maximum bound to generate time windows
     base_horizon = sum(task.duration_steps for task in user_tasks)
     max_deadline = max(
         (t.deadline_steps for t in user_tasks if getattr(t, "deadline_steps", None) is not None), default=0
     )
-    return max(base_horizon * 3 + steps_per_day, min_horizon_days * steps_per_day, max_deadline)
+    pessimistic_max = max(base_horizon * 3 + steps_per_day, min_horizon_days * steps_per_day, max_deadline)
+
+
+    blocked_intervals = generate_blocked_intervals(time_blocks, pessimistic_max, step_minutes)
+    free_windows = []
+    curr = 0
+    for start, end in blocked_intervals:
+        if start > curr:
+            free_windows.append((curr, start))
+        curr = max(curr, end)
+    if curr < pessimistic_max:
+        free_windows.append((curr, pessimistic_max))
+
+
+    task_by_id = {t.id: t for t in user_tasks if getattr(t, "id", None) is not None}
+    in_degree = {t.id: 0 for t in user_tasks if getattr(t, "id", None) is not None}
+    adj = {t.id: [] for t in user_tasks if getattr(t, "id", None) is not None}
+
+    for t in user_tasks:
+        if getattr(t, "depends_on", None):
+            for dep_id in t.depends_on:
+                if dep_id in adj:
+                    adj[dep_id].append(t.id)
+                    if t.id in in_degree:
+                        in_degree[t.id] += 1
+
+    counter = itertools.count()
+    pq = []
+    for t in user_tasks:
+        if getattr(t, "id", None) is not None and in_degree[t.id] == 0:
+            dl = t.deadline_steps if getattr(t, "deadline_steps", None) is not None else math.inf
+            heapq.heappush(pq, (dl, next(counter), t.id))
+
+    sorted_tasks = []
+    while pq:
+        _, _, task_id = heapq.heappop(pq)
+        t = task_by_id[task_id]
+        sorted_tasks.append(t)
+        for child_id in adj[task_id]:
+            in_degree[child_id] -= 1
+            if in_degree[child_id] == 0:
+                child = task_by_id[child_id]
+                dl = child.deadline_steps if getattr(child, "deadline_steps", None) is not None else math.inf
+                heapq.heappush(pq, (dl, next(counter), child_id))
+
+    added = set(t.id for t in sorted_tasks)
+    for t in user_tasks:
+        if getattr(t, "id", None) is None or t.id not in added:
+            sorted_tasks.append(t)
+
+
+    release_times = {t.id: getattr(t, "start_steps", 0) for t in user_tasks if getattr(t, "id", None) is not None}
+    simulated_horizon = 0
+
+    for task in sorted_tasks:
+        chunks = []
+        if getattr(task, "min_chunk_duration_steps", None) is not None and task.duration_steps > task.min_chunk_duration_steps:
+            max_chunks = math.ceil(task.duration_steps / task.min_chunk_duration_steps)
+            remainder = task.duration_steps - (max_chunks - 1) * task.min_chunk_duration_steps
+            for _ in range(max_chunks - 1):
+                chunks.append(task.min_chunk_duration_steps + task.break_duration_steps)
+            chunks.append(remainder + task.break_duration_steps)
+        else:
+            chunks.append(task.duration_steps + task.break_duration_steps)
+
+        t_curr = release_times.get(task.id, getattr(task, "start_steps", 0)) if getattr(task, "id", None) is not None else getattr(task, "start_steps", 0)
+        deadline = task.deadline_steps if getattr(task, "deadline_steps", None) is not None else math.inf
+
+        for chunk_size in chunks:
+            placed = False
+            for i, (w_start, w_end) in enumerate(free_windows):
+                start_time = max(w_start, t_curr)
+                if w_end > start_time and (w_end - start_time) >= chunk_size:
+                    if start_time + chunk_size <= deadline:
+                        t_curr = start_time + chunk_size
+                        # Split the window
+                        new_windows = free_windows[:i]
+                        if start_time > w_start:
+                            new_windows.append((w_start, start_time))
+                        if w_end > start_time + chunk_size:
+                            new_windows.append((start_time + chunk_size, w_end))
+                        new_windows.extend(free_windows[i+1:])
+                        free_windows = new_windows
+                        placed = True
+                        break
+            if not placed:
+                t_curr += chunk_size
+
+        if not getattr(task, "is_routine", False):
+            simulated_horizon = max(simulated_horizon, t_curr)
+        if getattr(task, "id", None) is not None:
+            for child_id in adj.get(task.id, []):
+                release_times[child_id] = max(release_times.get(child_id, 0), t_curr)
+
+    return max(simulated_horizon, min_horizon_days * steps_per_day, max_deadline)
 
 
 def generate_blocked_intervals(time_blocks, horizon, step_minutes=1):
@@ -93,7 +186,7 @@ def create_model(user_tasks, time_blocks, min_horizon_days=14, priority_threshol
 
     # Data preparation and calculation of constraints
     if horizon is None:
-        horizon = calculate_horizon(user_tasks, min_horizon_days, step_minutes)
+        horizon = calculate_horizon(user_tasks, time_blocks, min_horizon_days, step_minutes)
 
     blocked_time_intervals = generate_blocked_intervals(time_blocks, horizon, step_minutes)
 

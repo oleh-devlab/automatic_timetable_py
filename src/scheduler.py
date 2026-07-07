@@ -133,10 +133,26 @@ class Scheduler:
         # Process time blocks
         processed_blocks = process_time_blocks(self.time_blocks, now, self.step_minutes)
 
-        # Calculate horizon
-        horizon = calculate_horizon(self.tasks, min_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
+        # 1. Calculate a pessimistic max to generate all possible routines for simulation
+        steps_per_day = 1440 // self.step_minutes
+        base_horizon = sum(task.duration_steps for task in self.tasks)
+        max_deadline = max(
+            (getattr(t, "deadline_steps", 0) for t in self.tasks if getattr(t, "deadline_steps", None) is not None), default=0
+        )
+        pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
+        
+        sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
+        combined_sim_tasks = self.tasks + sim_extra_tasks
+        combined_sim_blocks = processed_blocks + sim_extra_blocks
+        
+        # 2. Calculate mathematical minimum horizon using simulation (tracks only non-routine tasks)
+        simulated_horizon = calculate_horizon(combined_sim_tasks, combined_sim_blocks, min_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
+        
+        # 3. Add 1 day of slack and snap to end of day to give the solver breathing room
+        horizon = simulated_horizon + steps_per_day
+        horizon = math.ceil(horizon / steps_per_day) * steps_per_day
 
-        # Expand routines
+        # 4. Expand real routines up to the snapped horizon
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
 
         # Combine base and extra data
@@ -160,6 +176,9 @@ class Scheduler:
         solver.parameters.max_memory_in_mb = max_memory_in_mb
 
         packer_status = solver.solve(model)
+        if packer_status == cp_model.MODEL_INVALID:
+            print("MODEL_INVALID Details:", model.Validate())
+            
         gravity_status = None
 
         if packer_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):

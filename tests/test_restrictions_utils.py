@@ -8,7 +8,7 @@ from src.data_structs import Task, TimeBlock
 class TestCalculateHorizon(unittest.TestCase):
     def test_small_total_task_duration(self):
         """
-        When base_horizon * 3 + 1440 is LESS than min_horizon_days * 1440,
+        When simulated horizon is LESS than min_horizon_days * 1440,
         it should return min_horizon_days * 1440.
         """
         tasks_small = [
@@ -18,25 +18,28 @@ class TestCalculateHorizon(unittest.TestCase):
         for t in tasks_small:
             t.duration_steps = int(t.duration.total_seconds() / 60)
         # min_horizon_days = 14 -> 14 * 1440 = 20160
-        # Total duration = 60 min. -> 60 * 3 + 1440 = 1620
-        # max(1620, 20160) = 20160
-        self.assertEqual(calculate_horizon(tasks_small, min_horizon_days=14), 20160)
+        # Total duration = 60 min.
+        # Simulated horizon = 60
+        # max(60, 20160) = 20160
+        self.assertEqual(calculate_horizon(tasks_small, [], min_horizon_days=14), 20160)
 
     def test_large_total_task_duration(self):
         """
-        When base_horizon * 3 + 1440 is GREATER than min_horizon_days * 1440,
-        it should return base_horizon * 3 + 1440.
+        When simulated horizon is GREATER than min_horizon_days * 1440,
+        it should return the simulated horizon.
+        Wait, in this case 1000 is < 2880 so it should return 2880. Let's make it 3000 to test > 2880.
         """
         tasks_large = [
-            Task(name="Task 1", duration=timedelta(minutes=500)),
-            Task(name="Task 2", duration=timedelta(minutes=500)),
+            Task(name="Task 1", duration=timedelta(minutes=1500)),
+            Task(name="Task 2", duration=timedelta(minutes=1500)),
         ]
         for t in tasks_large:
             t.duration_steps = int(t.duration.total_seconds() / 60)
         # min_horizon_days = 2 -> 2 * 1440 = 2880
-        # Total duration = 1000 min. -> 1000 * 3 + 1440 = 4440
-        # max(4440, 2880) = 4440
-        self.assertEqual(calculate_horizon(tasks_large, min_horizon_days=2), 4440)
+        # Total duration = 3000 min.
+        # Simulated horizon = 3000
+        # max(3000, 2880) = 3000
+        self.assertEqual(calculate_horizon(tasks_large, [], min_horizon_days=2), 3000)
 
     def test_empty_task_list(self):
         """
@@ -44,23 +47,23 @@ class TestCalculateHorizon(unittest.TestCase):
         """
         # Total duration = 0 -> 0 * 3 + 1440 = 1440
         # max(1440, 1 * 1440) = 1440
-        self.assertEqual(calculate_horizon([], min_horizon_days=1), 1440)
+        self.assertEqual(calculate_horizon([], [], min_horizon_days=1), 1440)
 
     def test_default_min_horizon_days(self):
         """
         When min_horizon_days is not provided, it should use the default value (14).
         """
         # 14 (default) * 1440 = 20160
-        self.assertEqual(calculate_horizon([]), 20160)
+        self.assertEqual(calculate_horizon([], []), 20160)
 
     def test_invalid_min_horizon_days(self):
         """
         ValueError should be raised if min_horizon_days <= 0.
         """
         with self.assertRaises(ValueError):
-            calculate_horizon([], min_horizon_days=0)
+            calculate_horizon([], [], min_horizon_days=0)
         with self.assertRaises(ValueError):
-            calculate_horizon([], min_horizon_days=-5)
+            calculate_horizon([], [], min_horizon_days=-5)
 
 
 class TestGenerateBlockedIntervals(unittest.TestCase):
