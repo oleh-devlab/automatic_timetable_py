@@ -12,7 +12,7 @@ from tests.solver_test_utils import BaseSolverTest
 class TestRoutinesSolver(BaseSolverTest):
     """Integration tests: routines expanded and solved through the CP-SAT solver."""
 
-    def _expand_and_solve(self, routines, user_tasks=None, time_blocks=None, now=None, max_horizon_days=14):
+    def _expand_and_solve(self, routines, user_tasks=None, time_blocks=None, now=None, min_horizon_days=14):
         """
         Helper: expands routines, merges with user_tasks/time_blocks,
         builds the model, and solves it. Returns (solver, all_tasks, routine_info).
@@ -50,7 +50,7 @@ class TestRoutinesSolver(BaseSolverTest):
             routine.duration_steps = math.ceil(routine.duration.total_seconds() / 60)
             routine.break_duration_steps = math.ceil(routine.break_duration.total_seconds() / 60)
 
-        horizon = calculate_horizon(user_tasks, max_horizon_days)
+        horizon = calculate_horizon(user_tasks, min_horizon_days)
         extra_tasks, extra_blocks, routine_info = expand_routines(routines, now, horizon)
         user_tasks.extend(extra_tasks)
         time_blocks.extend(extra_blocks)
@@ -277,7 +277,7 @@ class TestRoutinesSolver(BaseSolverTest):
         # We only want to test tomorrow's instance.
         # expand_routines will generate one for today and one for tomorrow.
         # Let's check tomorrow's instance specifically.
-        solver, all_tasks, _ = self._expand_and_solve([routine], now=now, max_horizon_days=2)
+        solver, all_tasks, _ = self._expand_and_solve([routine], now=now, min_horizon_days=2)
 
         tomorrow_tasks = [t for t in all_tasks if getattr(t, "is_routine", False) and "(07.07)" in t.name]
         self.assertGreater(len(tomorrow_tasks), 0, "Tomorrow's routine should be generated")

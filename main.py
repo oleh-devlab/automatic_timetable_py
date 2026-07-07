@@ -20,7 +20,7 @@ def main():
     data_path = os.path.join(os.path.dirname(__file__), "data.json")
     user_tasks, time_blocks, routines = data_read.load_data(data_path)
 
-    scheduler = Scheduler(max_horizon_days=6, priority_threshold=5, step_minutes=1)
+    scheduler = Scheduler(min_horizon_days=14, priority_threshold=5, step_minutes=5)
 
     for task in user_tasks:
         scheduler.add_task(task)
@@ -38,7 +38,7 @@ def main():
     now = datetime.now().replace(second=0, microsecond=0)
     # now = datetime.strptime("06.07.2026", "%d.%m.%Y")
 
-    result = scheduler.solve(start_time=now, timeout_seconds=100, num_search_workers=8)
+    result = scheduler.solve(start_time=now, timeout_seconds=15, num_search_workers=8)
     end_time_solving = time.perf_counter()
 
     print("Time taken to solve the model: {:.6f} seconds".format(end_time_solving - start_time_solving))

@@ -5,7 +5,11 @@ from .data_structs import Task, TimeBlock, Routine
 
 def _parse_datetime(dt_str: str | None) -> datetime | None:
     if dt_str:
-        return datetime.strptime(dt_str, "%d.%m.%Y %H:%M")
+        try:
+            return datetime.strptime(dt_str, "%d.%m.%Y %H:%M")
+        except ValueError:
+            dt = datetime.fromisoformat(dt_str)
+            return dt.replace(tzinfo=None)
     return None
 
 

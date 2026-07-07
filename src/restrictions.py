@@ -5,15 +5,15 @@ from .chunking import calculate_chunks
 from .data_structs import TimeBlock
 
 
-def calculate_horizon(user_tasks, max_horizon_days=14, step_minutes=1):
-    if max_horizon_days <= 0:
-        raise ValueError(f"max_horizon_days must be greater than 0, got {max_horizon_days}")
+def calculate_horizon(user_tasks, min_horizon_days=14, step_minutes=1):
+    if min_horizon_days <= 0:
+        raise ValueError(f"min_horizon_days must be greater than 0, got {min_horizon_days}")
     """
     Calculates the safe planning horizon (maximum available time in minutes).
     
     Args:
         user_tasks (list[Task]): List of user tasks.
-        max_horizon_days (int, optional): Maximum horizon limit in days.
+        min_horizon_days (int, optional): Maximum horizon limit in days.
         
     Returns:
         int: Planning horizon in minutes.
@@ -23,7 +23,7 @@ def calculate_horizon(user_tasks, max_horizon_days=14, step_minutes=1):
     max_deadline = max(
         (t.deadline_steps for t in user_tasks if getattr(t, "deadline_steps", None) is not None), default=0
     )
-    return max(base_horizon * 3 + steps_per_day, max_horizon_days * steps_per_day, max_deadline)
+    return max(base_horizon * 3 + steps_per_day, min_horizon_days * steps_per_day, max_deadline)
 
 
 def generate_blocked_intervals(time_blocks, horizon, step_minutes=1):
@@ -88,12 +88,12 @@ def calculate_task_weight(task, priority_threshold=5, step_minutes=1):
         return low_tier_base + (days_inverted * deadline_step) + weighted_priority
 
 
-def create_model(user_tasks, time_blocks, max_horizon_days=14, priority_threshold=5, horizon=None, step_minutes=1):
+def create_model(user_tasks, time_blocks, min_horizon_days=14, priority_threshold=5, horizon=None, step_minutes=1):
     model = cp_model.CpModel()
 
     # Data preparation and calculation of constraints
     if horizon is None:
-        horizon = calculate_horizon(user_tasks, max_horizon_days, step_minutes)
+        horizon = calculate_horizon(user_tasks, min_horizon_days, step_minutes)
 
     blocked_time_intervals = generate_blocked_intervals(time_blocks, horizon, step_minutes)
 

@@ -67,8 +67,8 @@ class ScheduleResult:
 
 
 class Scheduler:
-    def __init__(self, max_horizon_days: int = 14, priority_threshold: int = 5, step_minutes: int = 1):
-        self.max_horizon_days = max_horizon_days
+    def __init__(self, min_horizon_days: int = 14, priority_threshold: int = 5, step_minutes: int = 1):
+        self.min_horizon_days = min_horizon_days
         self.priority_threshold = priority_threshold
         self.step_minutes = step_minutes
 
@@ -89,7 +89,7 @@ class Scheduler:
         self,
         start_time: datetime | None = None,
         timeout_seconds: float = 0.5,
-        max_horizon_days: int | None = None,
+        min_horizon_days: int | None = None,
         priority_threshold: int | None = None,
         num_search_workers: int = 1,
         max_memory_in_mb: int = 256,
@@ -103,7 +103,7 @@ class Scheduler:
                 minutes_to_add = self.step_minutes - minute_remainder
                 now += timedelta(minutes=minutes_to_add)
 
-        actual_horizon_days = max_horizon_days if max_horizon_days is not None else self.max_horizon_days
+        actual_horizon_days = min_horizon_days if min_horizon_days is not None else self.min_horizon_days
         actual_priority_threshold = priority_threshold if priority_threshold is not None else self.priority_threshold
 
         # Process deadlines and duration for tasks
@@ -134,7 +134,7 @@ class Scheduler:
         processed_blocks = process_time_blocks(self.time_blocks, now, self.step_minutes)
 
         # Calculate horizon
-        horizon = calculate_horizon(self.tasks, max_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
+        horizon = calculate_horizon(self.tasks, min_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
 
         # Expand routines
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
@@ -147,7 +147,7 @@ class Scheduler:
         model = create_model(
             combined_tasks,
             combined_blocks,
-            max_horizon_days=actual_horizon_days,
+            min_horizon_days=actual_horizon_days,
             priority_threshold=actual_priority_threshold,
             horizon=horizon,
             step_minutes=self.step_minutes,
