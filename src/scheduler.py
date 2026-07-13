@@ -125,6 +125,15 @@ class Scheduler:
             else:
                 task.deadline_steps = None
 
+        # Pre-filter expired tasks: deadline already in the past
+        expired_tasks = []
+        active_tasks = []
+        for task in self.tasks:
+            if task.deadline_steps is not None and task.deadline_steps <= 0:
+                expired_tasks.append(task)
+            else:
+                active_tasks.append(task)
+
         # Process routines duration
         for routine in self.routines:
             routine.duration_steps = math.ceil(routine.duration.total_seconds() / 60 / self.step_minutes)
@@ -135,14 +144,14 @@ class Scheduler:
 
         # 1. Calculate a pessimistic max to generate all possible routines for simulation
         steps_per_day = 1440 // self.step_minutes
-        base_horizon = sum(task.duration_steps for task in self.tasks)
+        base_horizon = sum(task.duration_steps for task in active_tasks)
         max_deadline = max(
             (getattr(t, "deadline_steps", 0) for t in self.tasks if getattr(t, "deadline_steps", None) is not None), default=0
         )
         pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
         
         sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
-        combined_sim_tasks = self.tasks + sim_extra_tasks
+        combined_sim_tasks = active_tasks + sim_extra_tasks
         combined_sim_blocks = processed_blocks + sim_extra_blocks
         
         # 2. Calculate mathematical minimum horizon using simulation (tracks only non-routine tasks)
@@ -155,8 +164,12 @@ class Scheduler:
         # 4. Expand real routines up to the snapped horizon
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
 
+        # Pre-filter expired routine tasks
+        expired_routine_tasks = [t for t in extra_tasks if getattr(t, 'deadline_steps', None) is not None and t.deadline_steps <= 0]
+        extra_tasks = [t for t in extra_tasks if getattr(t, 'deadline_steps', None) is None or t.deadline_steps > 0]
+
         # Combine base and extra data
-        combined_tasks = self.tasks + extra_tasks
+        combined_tasks = active_tasks + extra_tasks
         combined_blocks = processed_blocks + extra_blocks
 
         # Create model
@@ -205,6 +218,12 @@ class Scheduler:
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
         result.horizon = horizon * self.step_minutes
+
+        # Add pre-filtered expired items to skipped lists
+        for task in expired_tasks:
+            result.skipped_tasks.append(SkippedTask(task))
+        for task in expired_routine_tasks:
+            result.skipped_routines.append(SkippedTask(task))
 
         if result.is_successful:
             for task in combined_tasks:
