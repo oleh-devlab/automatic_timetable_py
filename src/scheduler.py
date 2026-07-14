@@ -88,13 +88,17 @@ class Scheduler:
     def solve(
         self,
         start_time: datetime | None = None,
-        timeout_seconds: float = 0.5,
+        timeouts: dict[str, float] | None = None,
         min_horizon_days: int | None = None,
         priority_threshold: int | None = None,
         num_search_workers: int = 1,
         max_memory_in_mb: int = 256,
     ) -> ScheduleResult:
         now = start_time or datetime.now().replace(second=0, microsecond=0)
+
+        timeouts = timeouts or {"packer": 0.5, "gravity": 0.5}
+        packer_timeout = timeouts.get("packer", 0.5)
+        gravity_timeout = timeouts.get("gravity", 0.5)
 
         # Round 'now' UP (ceil) to the nearest step_minutes
         if self.step_minutes > 1:
@@ -171,7 +175,7 @@ class Scheduler:
 
         # Stage 1: Packer
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = timeout_seconds
+        solver.parameters.max_time_in_seconds = packer_timeout
         solver.parameters.num_search_workers = num_search_workers
         solver.parameters.max_memory_in_mb = max_memory_in_mb
 
@@ -197,7 +201,8 @@ class Scheduler:
             if hasattr(model, "time_bonus_terms"):
                 model.maximize(sum(model.time_bonus_terms))
 
-                # Re-solve (reusing the same solver instance limits time globally)
+                # Re-solve with Stage 2 timeout
+                solver.parameters.max_time_in_seconds = gravity_timeout
                 gravity_status = solver.solve(model)
 
         packer_str = solver.status_name(packer_status)

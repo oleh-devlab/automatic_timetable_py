@@ -38,7 +38,7 @@ def main():
     now = datetime.now().replace(second=0, microsecond=0)
     # now = datetime.strptime("06.07.2026", "%d.%m.%Y")
 
-    result = scheduler.solve(start_time=now, timeout_seconds=7, num_search_workers=8)
+    result = scheduler.solve(start_time=now, timeouts={"packer": 7.0, "gravity": 3.0}, num_search_workers=8)
     end_time_solving = time.perf_counter()
 
     print("Time taken to solve the model: {:.6f} seconds".format(end_time_solving - start_time_solving))
