@@ -33,6 +33,14 @@ class ScheduledRoutine:
 
 
 @dataclass
+class ScheduledTimeBlock:
+    name: str
+    start_time: datetime
+    end_time: datetime
+    id: int | str | None = None
+
+
+@dataclass
 class FlexibleRoutineInfo:
     name: str
     day: date
@@ -59,11 +67,68 @@ class ScheduleResult:
         self.scheduled_routines: list[ScheduledRoutine] = []
         self.skipped_routines: list[SkippedTask] = []
         self.flexible_routines_info: list[FlexibleRoutineInfo] = []
+        self.scheduled_timeblocks: list[ScheduledTimeBlock] = []
         self.horizon: int = 0
 
     @property
     def is_successful(self):
         return self.packer_status in ("OPTIMAL", "FEASIBLE")
+
+
+def _expand_timeblocks_for_export(
+    processed_blocks: list[TimeBlock],
+    horizon: int,
+    now: datetime,
+    step_minutes: int,
+) -> list[ScheduledTimeBlock]:
+    """
+    Expands processed TimeBlocks across the planning horizon for client display.
+
+    Unlike generate_blocked_intervals(), this function:
+    - Does NOT merge overlapping blocks (preserves individual identities)
+    - Does NOT clamp start to 0 (preserves true past datetime boundaries)
+    - Filters out blocks that are entirely in the past (end <= 0)
+
+    Args:
+        processed_blocks: TimeBlocks already converted to step offsets.
+        horizon: Planning horizon in steps.
+        now: Reference datetime for offset conversion.
+        step_minutes: Minutes per solver step.
+
+    Returns:
+        List of ScheduledTimeBlock with timezone-aware datetime boundaries.
+    """
+    steps_per_day = 1440 // step_minutes
+    result = []
+    for tb in processed_blocks:
+        if tb.daily:
+            curr_start = tb.start
+            curr_end = tb.end
+            while curr_start < horizon:
+                if curr_end > 0:  # at least partially in the future
+                    start_dt = now + timedelta(minutes=curr_start * step_minutes)
+                    end_dt = now + timedelta(minutes=curr_end * step_minutes)
+                    result.append(ScheduledTimeBlock(
+                        name=tb.name,
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        id=tb.id,
+                    ))
+                curr_start += steps_per_day
+                curr_end += steps_per_day
+        else:
+            if tb.start >= horizon:
+                continue
+            if tb.end > 0:  # at least partially in the future
+                start_dt = now + timedelta(minutes=tb.start * step_minutes)
+                end_dt = now + timedelta(minutes=tb.end * step_minutes)
+                result.append(ScheduledTimeBlock(
+                    name=tb.name,
+                    start_time=start_dt,
+                    end_time=end_dt,
+                    id=tb.id,
+                ))
+    return result
 
 
 class Scheduler:
@@ -223,6 +288,9 @@ class Scheduler:
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
         result.horizon = horizon * self.step_minutes
+        result.scheduled_timeblocks = _expand_timeblocks_for_export(
+            combined_blocks, horizon, now, self.step_minutes
+        )
 
         # Add pre-filtered expired items to skipped lists
         for task in expired_tasks:

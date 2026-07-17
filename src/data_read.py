@@ -48,7 +48,7 @@ def load_data(filepath):
         for t in data.get("user_tasks", [])
     ]
     time_blocks = [
-        TimeBlock(start=_parse_datetime(b["start"]), end=_parse_datetime(b["end"]), daily=b.get("daily", True))
+        TimeBlock(start=_parse_datetime(b["start"]), end=_parse_datetime(b["end"]), daily=b.get("daily", True), name=b.get("name", ""), id=b.get("id"))
         for b in data.get("time_blocks", [])
     ]
 

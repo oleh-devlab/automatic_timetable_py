@@ -62,6 +62,18 @@ def main():
                 }
             )
 
+        for stb in result.scheduled_timeblocks:
+            events.append(
+                {
+                    "type": "Blocked Time",
+                    "name": stb.name if stb.name else "Busy",
+                    "start": stb.start_time,
+                    "end": stb.end_time,
+                    "duration": int((stb.end_time - stb.start_time).total_seconds() // 60),
+                    "details": "",
+                }
+            )
+
         for st in result.scheduled_tasks:
             if st.chunks:
                 for i, chunk in enumerate(st.chunks):
