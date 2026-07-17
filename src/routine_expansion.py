@@ -36,7 +36,7 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                     continue
 
             # Check if routine should be skipped
-            if getattr(routine, 'resume_after', None) and current_date <= routine.resume_after:
+            if getattr(routine, "resume_after", None) and current_date <= routine.resume_after:
                 continue
 
             # It's a valid day for this routine
@@ -51,7 +51,9 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                 end_steps = start_steps + routine.duration_steps
 
                 if end_steps > 0 and start_steps <= horizon_minutes:
-                    extra_blocks.append(TimeBlock(start_steps, end_steps, daily=False, name=routine.name, id=routine.id))
+                    extra_blocks.append(
+                        TimeBlock(start_steps, end_steps, daily=False, name=routine.name, id=routine.id)
+                    )
                     routine_info.append(
                         {
                             "name": routine.name,

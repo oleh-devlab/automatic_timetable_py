@@ -68,7 +68,11 @@ def process_time_blocks(time_blocks, now, step_minutes=1):
 
             if end_min > 0:
                 new_block = TimeBlock(
-                    start=math.floor(start_min / step_minutes), end=math.ceil(end_min / step_minutes), daily=False, name=b.name, id=b.id
+                    start=math.floor(start_min / step_minutes),
+                    end=math.ceil(end_min / step_minutes),
+                    daily=False,
+                    name=b.name,
+                    id=b.id,
                 )
                 processed_blocks.append(new_block)
 
