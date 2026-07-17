@@ -108,12 +108,14 @@ def _expand_timeblocks_for_export(
                 if curr_end > 0:  # at least partially in the future
                     start_dt = now + timedelta(minutes=curr_start * step_minutes)
                     end_dt = now + timedelta(minutes=curr_end * step_minutes)
-                    result.append(ScheduledTimeBlock(
-                        name=tb.name,
-                        start_time=start_dt,
-                        end_time=end_dt,
-                        id=tb.id,
-                    ))
+                    result.append(
+                        ScheduledTimeBlock(
+                            name=tb.name,
+                            start_time=start_dt,
+                            end_time=end_dt,
+                            id=tb.id,
+                        )
+                    )
                 curr_start += steps_per_day
                 curr_end += steps_per_day
         else:
@@ -122,12 +124,14 @@ def _expand_timeblocks_for_export(
             if tb.end > 0:  # at least partially in the future
                 start_dt = now + timedelta(minutes=tb.start * step_minutes)
                 end_dt = now + timedelta(minutes=tb.end * step_minutes)
-                result.append(ScheduledTimeBlock(
-                    name=tb.name,
-                    start_time=start_dt,
-                    end_time=end_dt,
-                    id=tb.id,
-                ))
+                result.append(
+                    ScheduledTimeBlock(
+                        name=tb.name,
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        id=tb.id,
+                    )
+                )
     return result
 
 
@@ -215,17 +219,23 @@ class Scheduler:
         steps_per_day = 1440 // self.step_minutes
         base_horizon = sum(task.duration_steps for task in active_tasks)
         max_deadline = max(
-            (getattr(t, "deadline_steps", 0) for t in self.tasks if getattr(t, "deadline_steps", None) is not None), default=0
+            (getattr(t, "deadline_steps", 0) for t in self.tasks if getattr(t, "deadline_steps", None) is not None),
+            default=0,
         )
         pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
-        
+
         sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
         combined_sim_tasks = active_tasks + sim_extra_tasks
         combined_sim_blocks = processed_blocks + sim_extra_blocks
-        
+
         # 2. Calculate mathematical minimum horizon using simulation (tracks only non-routine tasks)
-        simulated_horizon = calculate_horizon(combined_sim_tasks, combined_sim_blocks, min_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
-        
+        simulated_horizon = calculate_horizon(
+            combined_sim_tasks,
+            combined_sim_blocks,
+            min_horizon_days=actual_horizon_days,
+            step_minutes=self.step_minutes,
+        )
+
         # 3. Add 1 day of slack and snap to end of day to give the solver breathing room
         horizon = simulated_horizon + steps_per_day
         horizon = math.ceil(horizon / steps_per_day) * steps_per_day
@@ -234,8 +244,10 @@ class Scheduler:
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
 
         # Pre-filter expired routine tasks
-        expired_routine_tasks = [t for t in extra_tasks if getattr(t, 'deadline_steps', None) is not None and t.deadline_steps <= 0]
-        extra_tasks = [t for t in extra_tasks if getattr(t, 'deadline_steps', None) is None or t.deadline_steps > 0]
+        expired_routine_tasks = [
+            t for t in extra_tasks if getattr(t, "deadline_steps", None) is not None and t.deadline_steps <= 0
+        ]
+        extra_tasks = [t for t in extra_tasks if getattr(t, "deadline_steps", None) is None or t.deadline_steps > 0]
 
         # Combine base and extra data
         combined_tasks = active_tasks + extra_tasks
@@ -260,7 +272,7 @@ class Scheduler:
         packer_status = solver.solve(model)
         if packer_status == cp_model.MODEL_INVALID:
             print("MODEL_INVALID Details:", model.Validate())
-            
+
         gravity_status = None
 
         if packer_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
@@ -288,9 +300,7 @@ class Scheduler:
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
         result.horizon = horizon * self.step_minutes
-        result.scheduled_timeblocks = _expand_timeblocks_for_export(
-            combined_blocks, horizon, now, self.step_minutes
-        )
+        result.scheduled_timeblocks = _expand_timeblocks_for_export(combined_blocks, horizon, now, self.step_minutes)
 
         # Add pre-filtered expired items to skipped lists
         for task in expired_tasks:
