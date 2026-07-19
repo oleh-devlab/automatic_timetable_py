@@ -274,18 +274,33 @@ class Scheduler:
             print("MODEL_INVALID Details:", model.Validate())
 
         gravity_status = None
+        safe_solution = {}
 
         if packer_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            # Stage 2: Gravity
-            # 1. Lock the presence variables based on Stage 1 solution
+            # Cache the safe solution from Stage 1
             for task in combined_tasks:
                 if hasattr(task, "presence_var"):
-                    val = solver.value(task.presence_var)
-                    model.add(task.presence_var == val)
+                    safe_solution[task.presence_var] = solver.value(task.presence_var)
+                if hasattr(task, "start_var"):
+                    safe_solution[task.start_var] = solver.value(task.start_var)
+                if hasattr(task, "end_var"):
+                    safe_solution[task.end_var] = solver.value(task.end_var)
+
                 if getattr(task, "chunks", None):
                     for chunk in task.chunks:
-                        val = solver.value(chunk["presence_var"])
-                        model.add(chunk["presence_var"] == val)
+                        safe_solution[chunk["presence_var"]] = solver.value(chunk["presence_var"])
+                        safe_solution[chunk["start_var"]] = solver.value(chunk["start_var"])
+                        safe_solution[chunk["end_var"]] = solver.value(chunk["end_var"])
+                        safe_solution[chunk["size_var"]] = solver.value(chunk["size_var"])
+
+            # Stage 2: Gravity
+            # 1. Lock the presence variables based on cached Stage 1 solution
+            for task in combined_tasks:
+                if hasattr(task, "presence_var"):
+                    model.add(task.presence_var == safe_solution[task.presence_var])
+                if getattr(task, "chunks", None):
+                    for chunk in task.chunks:
+                        model.add(chunk["presence_var"] == safe_solution[chunk["presence_var"]])
 
             # 2. Set new objective for time placement
             if hasattr(model, "time_bonus_terms"):
@@ -294,6 +309,20 @@ class Scheduler:
                 # Re-solve with Stage 2 timeout
                 solver.parameters.max_time_in_seconds = gravity_timeout
                 gravity_status = solver.solve(model)
+
+                # Update cache only if Gravity succeeds
+                if gravity_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                    for task in combined_tasks:
+                        if hasattr(task, "start_var"):
+                            safe_solution[task.start_var] = solver.value(task.start_var)
+                        if hasattr(task, "end_var"):
+                            safe_solution[task.end_var] = solver.value(task.end_var)
+
+                        if getattr(task, "chunks", None):
+                            for chunk in task.chunks:
+                                safe_solution[chunk["start_var"]] = solver.value(chunk["start_var"])
+                                safe_solution[chunk["end_var"]] = solver.value(chunk["end_var"])
+                                safe_solution[chunk["size_var"]] = solver.value(chunk["size_var"])
 
         packer_str = solver.status_name(packer_status)
         gravity_str = solver.status_name(gravity_status) if gravity_status is not None else None
@@ -310,9 +339,10 @@ class Scheduler:
 
         if result.is_successful:
             for task in combined_tasks:
-                if solver.value(task.presence_var):
-                    start_val = solver.value(task.start_var) * self.step_minutes
-                    end_val = solver.value(task.end_var) * self.step_minutes
+                # Use safe_solution instead of solver.value()
+                if safe_solution.get(task.presence_var, 0):
+                    start_val = safe_solution[task.start_var] * self.step_minutes
+                    end_val = safe_solution[task.end_var] * self.step_minutes
                     start_time_str = minutes_to_time(start_val, now)
                     end_time_str = minutes_to_time(end_val, now)
 
@@ -324,10 +354,10 @@ class Scheduler:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
                         if task.chunks:
                             for chunk in task.chunks:
-                                if solver.value(chunk["presence_var"]):
-                                    c_start = solver.value(chunk["start_var"]) * self.step_minutes
-                                    c_end = solver.value(chunk["end_var"]) * self.step_minutes
-                                    csize = solver.value(chunk["size_var"]) * self.step_minutes
+                                if safe_solution.get(chunk["presence_var"], 0):
+                                    c_start = safe_solution[chunk["start_var"]] * self.step_minutes
+                                    c_end = safe_solution[chunk["end_var"]] * self.step_minutes
+                                    csize = safe_solution[chunk["size_var"]] * self.step_minutes
                                     cs = minutes_to_time(c_start, now)
                                     ce = minutes_to_time(c_end, now)
                                     scheduled_task.chunks.append(ScheduledChunk(cs, ce, timedelta(minutes=csize)))
