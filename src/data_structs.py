@@ -45,6 +45,8 @@ class TimeBlock:
     start: int | datetime | None
     end: int | datetime | None
     daily: bool = True
+    name: str = ""
+    id: int | str | None = None
 
 
 @dataclass

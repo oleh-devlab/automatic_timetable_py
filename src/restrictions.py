@@ -16,14 +16,13 @@ def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes
         raise ValueError(f"min_horizon_days must be greater than 0, got {min_horizon_days}")
 
     steps_per_day = 1440 // step_minutes
-    
+
     # Calculate a pessimistic safe maximum bound to generate time windows
     base_horizon = sum(task.duration_steps for task in user_tasks)
     max_deadline = max(
         (t.deadline_steps for t in user_tasks if getattr(t, "deadline_steps", None) is not None), default=0
     )
     pessimistic_max = max(base_horizon * 3 + steps_per_day, min_horizon_days * steps_per_day, max_deadline)
-
 
     blocked_intervals = generate_blocked_intervals(time_blocks, pessimistic_max, step_minutes)
     free_windows = []
@@ -34,7 +33,6 @@ def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes
         curr = max(curr, end)
     if curr < pessimistic_max:
         free_windows.append((curr, pessimistic_max))
-
 
     task_by_id = {t.id: t for t in user_tasks if getattr(t, "id", None) is not None}
     in_degree = {t.id: 0 for t in user_tasks if getattr(t, "id", None) is not None}
@@ -72,13 +70,15 @@ def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes
         if getattr(t, "id", None) is None or t.id not in added:
             sorted_tasks.append(t)
 
-
     release_times = {t.id: getattr(t, "start_steps", 0) for t in user_tasks if getattr(t, "id", None) is not None}
     simulated_horizon = 0
 
     for task in sorted_tasks:
         chunks = []
-        if getattr(task, "min_chunk_duration_steps", None) is not None and task.duration_steps > task.min_chunk_duration_steps:
+        if (
+            getattr(task, "min_chunk_duration_steps", None) is not None
+            and task.duration_steps > task.min_chunk_duration_steps
+        ):
             max_chunks = math.ceil(task.duration_steps / task.min_chunk_duration_steps)
             remainder = task.duration_steps - (max_chunks - 1) * task.min_chunk_duration_steps
             for _ in range(max_chunks - 1):
@@ -87,7 +87,11 @@ def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes
         else:
             chunks.append(task.duration_steps + task.break_duration_steps)
 
-        t_curr = release_times.get(task.id, getattr(task, "start_steps", 0)) if getattr(task, "id", None) is not None else getattr(task, "start_steps", 0)
+        t_curr = (
+            release_times.get(task.id, getattr(task, "start_steps", 0))
+            if getattr(task, "id", None) is not None
+            else getattr(task, "start_steps", 0)
+        )
         deadline = task.deadline_steps if getattr(task, "deadline_steps", None) is not None else math.inf
 
         for chunk_size in chunks:
@@ -103,7 +107,7 @@ def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes
                             new_windows.append((w_start, start_time))
                         if w_end > start_time + chunk_size:
                             new_windows.append((start_time + chunk_size, w_end))
-                        new_windows.extend(free_windows[i+1:])
+                        new_windows.extend(free_windows[i + 1 :])
                         free_windows = new_windows
                         placed = True
                         break

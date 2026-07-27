@@ -34,6 +34,14 @@ class ScheduledRoutine:
 
 
 @dataclass
+class ScheduledTimeBlock:
+    name: str
+    start_time: datetime
+    end_time: datetime
+    id: int | str | None = None
+
+
+@dataclass
 class FlexibleRoutineInfo:
     name: str
     day: date
@@ -60,11 +68,72 @@ class ScheduleResult:
         self.scheduled_routines: list[ScheduledRoutine] = []
         self.skipped_routines: list[SkippedTask] = []
         self.flexible_routines_info: list[FlexibleRoutineInfo] = []
+        self.scheduled_timeblocks: list[ScheduledTimeBlock] = []
         self.horizon: int = 0
 
     @property
     def is_successful(self):
         return self.packer_status in ("OPTIMAL", "FEASIBLE")
+
+
+def _expand_timeblocks_for_export(
+    processed_blocks: list[TimeBlock],
+    horizon: int,
+    now: datetime,
+    step_minutes: int,
+) -> list[ScheduledTimeBlock]:
+    """
+    Expands processed TimeBlocks across the planning horizon for client display.
+
+    Unlike generate_blocked_intervals(), this function:
+    - Does NOT merge overlapping blocks (preserves individual identities)
+    - Does NOT clamp start to 0 (preserves true past datetime boundaries)
+    - Filters out blocks that are entirely in the past (end <= 0)
+
+    Args:
+        processed_blocks: TimeBlocks already converted to step offsets.
+        horizon: Planning horizon in steps.
+        now: Reference datetime for offset conversion.
+        step_minutes: Minutes per solver step.
+
+    Returns:
+        List of ScheduledTimeBlock with timezone-aware datetime boundaries.
+    """
+    steps_per_day = 1440 // step_minutes
+    result = []
+    for tb in processed_blocks:
+        if tb.daily:
+            curr_start = tb.start
+            curr_end = tb.end
+            while curr_start < horizon:
+                if curr_end > 0:  # at least partially in the future
+                    start_dt = now + timedelta(minutes=curr_start * step_minutes)
+                    end_dt = now + timedelta(minutes=curr_end * step_minutes)
+                    result.append(
+                        ScheduledTimeBlock(
+                            name=tb.name,
+                            start_time=start_dt,
+                            end_time=end_dt,
+                            id=tb.id,
+                        )
+                    )
+                curr_start += steps_per_day
+                curr_end += steps_per_day
+        else:
+            if tb.start >= horizon:
+                continue
+            if tb.end > 0:  # at least partially in the future
+                start_dt = now + timedelta(minutes=tb.start * step_minutes)
+                end_dt = now + timedelta(minutes=tb.end * step_minutes)
+                result.append(
+                    ScheduledTimeBlock(
+                        name=tb.name,
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        id=tb.id,
+                    )
+                )
+    return result
 
 
 class Scheduler:
@@ -151,17 +220,23 @@ class Scheduler:
         steps_per_day = 1440 // self.step_minutes
         base_horizon = sum(task.duration_steps for task in active_tasks)
         max_deadline = max(
-            (getattr(t, "deadline_steps", 0) for t in self.tasks if getattr(t, "deadline_steps", None) is not None), default=0
+            (getattr(t, "deadline_steps", 0) for t in self.tasks if getattr(t, "deadline_steps", None) is not None),
+            default=0,
         )
         pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
-        
+
         sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
         combined_sim_tasks = active_tasks + sim_extra_tasks
         combined_sim_blocks = processed_blocks + sim_extra_blocks
-        
+
         # 2. Calculate mathematical minimum horizon using simulation (tracks only non-routine tasks)
-        simulated_horizon = calculate_horizon(combined_sim_tasks, combined_sim_blocks, min_horizon_days=actual_horizon_days, step_minutes=self.step_minutes)
-        
+        simulated_horizon = calculate_horizon(
+            combined_sim_tasks,
+            combined_sim_blocks,
+            min_horizon_days=actual_horizon_days,
+            step_minutes=self.step_minutes,
+        )
+
         # 3. Add 1 day of slack and snap to end of day to give the solver breathing room
         horizon = simulated_horizon + steps_per_day
         horizon = math.ceil(horizon / steps_per_day) * steps_per_day
@@ -170,8 +245,10 @@ class Scheduler:
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
 
         # Pre-filter expired routine tasks
-        expired_routine_tasks = [t for t in extra_tasks if getattr(t, 'deadline_steps', None) is not None and t.deadline_steps <= 0]
-        extra_tasks = [t for t in extra_tasks if getattr(t, 'deadline_steps', None) is None or t.deadline_steps > 0]
+        expired_routine_tasks = [
+            t for t in extra_tasks if getattr(t, "deadline_steps", None) is not None and t.deadline_steps <= 0
+        ]
+        extra_tasks = [t for t in extra_tasks if getattr(t, "deadline_steps", None) is None or t.deadline_steps > 0]
 
         # Combine base and extra data
         combined_tasks = active_tasks + extra_tasks
@@ -196,20 +273,35 @@ class Scheduler:
         packer_status = solver.solve(model)
         if packer_status == cp_model.MODEL_INVALID:
             print("MODEL_INVALID Details:", model.Validate())
-            
+
         gravity_status = None
+        safe_solution = {}
 
         if packer_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            # Stage 2: Gravity
-            # 1. Lock the presence variables based on Stage 1 solution
+            # Cache the safe solution from Stage 1
             for task in combined_tasks:
                 if hasattr(task, "presence_var"):
-                    val = solver.value(task.presence_var)
-                    model.add(task.presence_var == val)
+                    safe_solution[task.presence_var] = solver.value(task.presence_var)
+                if hasattr(task, "start_var"):
+                    safe_solution[task.start_var] = solver.value(task.start_var)
+                if hasattr(task, "end_var"):
+                    safe_solution[task.end_var] = solver.value(task.end_var)
+
                 if getattr(task, "chunks", None):
                     for chunk in task.chunks:
-                        val = solver.value(chunk["presence_var"])
-                        model.add(chunk["presence_var"] == val)
+                        safe_solution[chunk["presence_var"]] = solver.value(chunk["presence_var"])
+                        safe_solution[chunk["start_var"]] = solver.value(chunk["start_var"])
+                        safe_solution[chunk["end_var"]] = solver.value(chunk["end_var"])
+                        safe_solution[chunk["size_var"]] = solver.value(chunk["size_var"])
+
+            # Stage 2: Gravity
+            # 1. Lock the presence variables based on cached Stage 1 solution
+            for task in combined_tasks:
+                if hasattr(task, "presence_var"):
+                    model.add(task.presence_var == safe_solution[task.presence_var])
+                if getattr(task, "chunks", None):
+                    for chunk in task.chunks:
+                        model.add(chunk["presence_var"] == safe_solution[chunk["presence_var"]])
 
             # 2. Set new objective for time placement
             if hasattr(model, "time_bonus_terms"):
@@ -219,11 +311,26 @@ class Scheduler:
                 solver.parameters.max_time_in_seconds = gravity_timeout
                 gravity_status = solver.solve(model)
 
+                # Update cache only if Gravity succeeds
+                if gravity_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                    for task in combined_tasks:
+                        if hasattr(task, "start_var"):
+                            safe_solution[task.start_var] = solver.value(task.start_var)
+                        if hasattr(task, "end_var"):
+                            safe_solution[task.end_var] = solver.value(task.end_var)
+
+                        if getattr(task, "chunks", None):
+                            for chunk in task.chunks:
+                                safe_solution[chunk["start_var"]] = solver.value(chunk["start_var"])
+                                safe_solution[chunk["end_var"]] = solver.value(chunk["end_var"])
+                                safe_solution[chunk["size_var"]] = solver.value(chunk["size_var"])
+
         packer_str = solver.status_name(packer_status)
         gravity_str = solver.status_name(gravity_status) if gravity_status is not None else None
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
         result.horizon = horizon * self.step_minutes
+        result.scheduled_timeblocks = _expand_timeblocks_for_export(combined_blocks, horizon, now, self.step_minutes)
 
         # Add pre-filtered expired items to skipped lists
         for task in expired_tasks:
@@ -233,9 +340,10 @@ class Scheduler:
 
         if result.is_successful:
             for task in combined_tasks:
-                if solver.value(task.presence_var):
-                    start_val = solver.value(task.start_var) * self.step_minutes
-                    end_val = solver.value(task.end_var) * self.step_minutes
+                # Use safe_solution instead of solver.value()
+                if safe_solution.get(task.presence_var, 0):
+                    start_val = safe_solution[task.start_var] * self.step_minutes
+                    end_val = safe_solution[task.end_var] * self.step_minutes
                     start_time_str = minutes_to_time(start_val, now)
                     end_time_str = minutes_to_time(end_val, now)
 
@@ -248,10 +356,10 @@ class Scheduler:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
                         if task.chunks:
                             for chunk in task.chunks:
-                                if solver.value(chunk["presence_var"]):
-                                    c_start = solver.value(chunk["start_var"]) * self.step_minutes
-                                    c_end = solver.value(chunk["end_var"]) * self.step_minutes
-                                    csize = solver.value(chunk["size_var"]) * self.step_minutes
+                                if safe_solution.get(chunk["presence_var"], 0):
+                                    c_start = safe_solution[chunk["start_var"]] * self.step_minutes
+                                    c_end = safe_solution[chunk["end_var"]] * self.step_minutes
+                                    csize = safe_solution[chunk["size_var"]] * self.step_minutes
                                     cs = minutes_to_time(c_start, now)
                                     ce = minutes_to_time(c_end, now)
                                     scheduled_task.chunks.append(ScheduledChunk(cs, ce, timedelta(minutes=csize)))
