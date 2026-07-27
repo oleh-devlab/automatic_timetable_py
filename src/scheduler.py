@@ -30,6 +30,7 @@ class ScheduledRoutine:
     start_time: datetime
     end_time: datetime
     routine_type: str = "flexible"
+    routine_id: int | None = None
 
 
 @dataclass
@@ -239,8 +240,9 @@ class Scheduler:
                     end_time_str = minutes_to_time(end_val, now)
 
                     if getattr(task, "is_routine", False):
+                        routine_id = getattr(task, "routine_id", None)
                         result.scheduled_routines.append(
-                            ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible")
+                            ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible", routine_id=routine_id)
                         )
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
@@ -271,9 +273,10 @@ class Scheduler:
 
                         dummy_task = Task(name=r["name"], duration=r["duration"])
                         dummy_task.is_routine = True
+                        dummy_task.id = r.get("id")
 
                         result.scheduled_routines.append(
-                            ScheduledRoutine(dummy_task, rt_start, rt_end, routine_type="fixed")
+                            ScheduledRoutine(dummy_task, rt_start, rt_end, routine_type="fixed", routine_id=r.get("id"))
                         )
                     elif r["type"] == "flexible":
                         result.flexible_routines_info.append(
