@@ -195,8 +195,8 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
                 f"Routine on {info['day']} is weekday {info['day'].weekday()}, expected Sat(5)",
             )
 
-    def test_task_name_contains_date(self):
-        """Each generated task name should contain the day.month suffix."""
+    def test_task_name_matches_routine_name(self):
+        """Generated task names should match the routine name exactly."""
         routine = Routine(name="Study", type="flexible", repeat="daily", duration=timedelta(minutes=30))
         now = datetime(2026, 7, 6, 10, 0)
         horizon = 2 * 1440
@@ -204,9 +204,7 @@ class TestExpandRoutinesFlexible(unittest.TestCase):
         extra_tasks, _, _ = _expand_routines_with_duration([routine], now, horizon)
 
         for task in extra_tasks:
-            self.assertRegex(
-                task.name, r"Study \(\d{2}\.\d{2}\)", f"Task name '{task.name}' does not match expected pattern"
-            )
+            self.assertEqual(task.name, "Study")
 
 
 class TestExpandRoutinesEdgeCases(unittest.TestCase):

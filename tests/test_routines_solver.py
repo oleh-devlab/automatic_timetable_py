@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from ortools.sat.python import cp_model
 import math
 
@@ -279,7 +279,9 @@ class TestRoutinesSolver(BaseSolverTest):
         # Let's check tomorrow's instance specifically.
         solver, all_tasks, _ = self._expand_and_solve([routine], now=now, min_horizon_days=2)
 
-        tomorrow_tasks = [t for t in all_tasks if getattr(t, "is_routine", False) and "(07.07)" in t.name]
+        tomorrow_tasks = [
+            t for t in all_tasks if getattr(t, "is_routine", False) and t.deadline.date() == date(2026, 7, 7)
+        ]
         self.assertGreater(len(tomorrow_tasks), 0, "Tomorrow's routine should be generated")
 
         tomorrow_task = tomorrow_tasks[0]
