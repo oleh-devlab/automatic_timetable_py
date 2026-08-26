@@ -41,6 +41,10 @@ that loads JSON and prints a schedule. Keep solver logic out of `main.py`.
    bound feeds `restrictions.calculate_horizon()` (a greedy first-fit simulation over free windows,
    honouring dependency order and deadlines), then the result gets +1 day of slack, is snapped up to
    a whole day, and routines are expanded *again* against that final horizon.
+   `calculate_horizon()` grows the stretch it explores on demand — a pass that runs out of free
+   windows before placing everything doubles the bound and retries, up to `max_horizon_days`
+   (default `DEFAULT_MAX_HORIZON_DAYS`, 365). A deadline bounds where a task may go and never
+   raises the horizon, so one distant deadline no longer inflates the whole model.
 5. `restrictions.create_model()` builds the CP-SAT model; the solver runs it twice (below).
 
 ### Everything is steps, not minutes
