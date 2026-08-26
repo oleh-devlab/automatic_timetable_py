@@ -82,9 +82,8 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                 # and it's within our horizon
                 if deadline_steps > 0 and deadline_steps - routine.duration_steps <= horizon_minutes:
                     # We do NOT use Pomodoro chunking for routines, so we don't set min/max chunk duration.
-                    task_name = f"{routine.name} ({current_date.strftime('%d.%m')})"
                     t = Task(
-                        name=task_name,
+                        name=routine.name,
                         duration=routine.duration,
                         deadline=deadline_dt,
                         priority=routine.priority,
