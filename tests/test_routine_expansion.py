@@ -59,6 +59,33 @@ class TestExpandRoutinesFixed(unittest.TestCase):
         self.assertEqual(len(extra_blocks), 0)
         self.assertEqual(len(routine_info), 0)
 
+    def test_fixed_routine_started_yesterday_is_still_blocked(self):
+        """A 23:00 routine running into the small hours must still block time at 00:30."""
+        routine = Routine(name="Sleep", type="fixed", repeat="daily", duration=timedelta(minutes=120), time=time(23, 0))
+        now = datetime(2026, 7, 7, 0, 30)  # yesterday's occurrence has 30 minutes left to run
+
+        _, extra_blocks, _ = _expand_routines_with_duration([routine], now, 3 * 1440)
+
+        ongoing = [b for b in extra_blocks if b.start <= 0 < b.end]
+        self.assertEqual(len(ongoing), 1, "the occurrence that began yesterday must still be blocked")
+        self.assertEqual((ongoing[0].start, ongoing[0].end), (-90, 30))
+
+    def test_weekly_fixed_started_yesterday_is_anchored_on_yesterday(self):
+        """A Monday-night routine belongs to Monday even when we look at it on Tuesday."""
+        routine = Routine(
+            name="Sleep",
+            type="fixed",
+            repeat="weekly",
+            duration=timedelta(minutes=120),
+            time=time(23, 0),
+            weekdays=[0],  # Monday
+        )
+        now = datetime(2026, 7, 7, 0, 30)  # Tuesday
+
+        _, extra_blocks, _ = _expand_routines_with_duration([routine], now, 3 * 1440)
+
+        self.assertEqual([(b.start, b.end) for b in extra_blocks], [(-90, 30)])
+
     def test_weekly_fixed_only_on_correct_weekdays(self):
         """A weekly fixed routine should only appear on specified weekdays."""
         # Monday=0 in Python's weekday()

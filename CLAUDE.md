@@ -98,7 +98,7 @@ in the scheduler; follow that convention rather than widening `Task`.
 
 `expand_routines()` materialises recurring items per day across the horizon: `type="fixed"` becomes a
 `TimeBlock` (plus a `routine_info` entry that `Scheduler.solve()` turns back into a `ScheduledRoutine`
-without ever entering the model), `type="flexible"` becomes a synthetic `Task` with `start_steps`
+without ever entering the model; an occurrence that started yesterday and is still running counts), `type="flexible"` becomes a synthetic `Task` with `start_steps`
 pinned to the start of its day and a deadline of `deadline_time` (or 23:59). Flexible routines are
 never chunked. IDs are namespaced `r_{routine_id}_{date}` so per-day `depends_on` links resolve within
 the same day.
@@ -110,12 +110,13 @@ handled exactly like a fixed routine: `utils.expand_time_blocks()` materialises 
 `daily=False` block per matching calendar date, keeping `name`/`id`, so nothing downstream needs to
 know about recurrence. Only the time-of-day part of `start`/`end` is used — the date is a template —
 and an occurrence is anchored on the weekday of its *start*, so a Friday 23:00–01:00 block belongs to
-Friday. Expansion starts a day early (`start_day_offset=-1`) so an occurrence that began yesterday
-and is still running at `now` survives.
+Friday.
 
 `utils.iter_active_dates()` is the one place that maps a recurrence rule onto calendar dates; both
 `expand_routines()` and `expand_time_blocks()` go through it. Keep it that way — the weekday
-semantics of blocks and routines should stay identical by construction.
+semantics of blocks and routines should stay identical by construction. Both pass
+`start_day_offset=-1`, so an occurrence that began yesterday and is still running at `now` survives
+(the past-end filter, not the day range, is what drops finished ones).
 
 ### Two different time-block expansions
 

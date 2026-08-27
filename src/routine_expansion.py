@@ -32,7 +32,10 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
                 continue  # a weekly routine without weekdays never applies
             weekdays = routine.weekdays
 
-        for current_date in iter_active_dates(now, horizon_minutes, step_minutes, weekdays=weekdays):
+        # Start a day early: a fixed routine that began yesterday may still be running at `now`
+        for current_date in iter_active_dates(
+            now, horizon_minutes, step_minutes, weekdays=weekdays, start_day_offset=-1
+        ):
             # Check if routine should be skipped
             if getattr(routine, "resume_after", None) and current_date <= routine.resume_after:
                 continue
