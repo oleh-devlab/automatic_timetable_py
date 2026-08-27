@@ -53,3 +53,19 @@ class TestDataRead(unittest.TestCase):
             self.assertEqual(time_blocks[1].start, datetime(2023, 10, 25, 15, 0))
             self.assertEqual(time_blocks[1].end, datetime(2023, 10, 25, 16, 0))
             self.assertTrue(time_blocks[1].daily)
+
+    def test_load_data_parses_time_block_weekdays(self):
+        """A time block may carry a weekly recurrence rule; without it weekdays stays None."""
+        mock_json_data = {
+            "time_blocks": [
+                {"start": "25.10.2023 14:00", "end": "25.10.2023 15:30", "weekdays": [1, 3], "name": "Lecture"},
+                {"start": "25.10.2023 09:00", "end": "25.10.2023 10:00", "daily": True},
+            ]
+        }
+
+        with patch("builtins.open", mock_open(read_data=json.dumps(mock_json_data))):
+            _, time_blocks, _ = load_data("dummy_path.json")
+
+            self.assertEqual(time_blocks[0].weekdays, [1, 3])
+            self.assertEqual(time_blocks[0].name, "Lecture")
+            self.assertIsNone(time_blocks[1].weekdays)

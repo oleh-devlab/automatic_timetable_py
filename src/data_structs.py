@@ -47,6 +47,15 @@ class TimeBlock:
     daily: bool = True
     name: str = ""
     id: int | str | None = None
+    weekdays: list[int] | None = None
+
+    def __post_init__(self):
+        if self.weekdays is not None:
+            for weekday in self.weekdays:
+                if not 0 <= weekday <= 6:
+                    raise ValueError(
+                        f"TimeBlock '{self.name}': weekday must be between 0 (Monday) and 6 (Sunday), got {weekday}"
+                    )
 
 
 @dataclass

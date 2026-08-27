@@ -37,10 +37,12 @@ that loads JSON and prints a schedule. Keep solver logic out of `main.py`.
    model is built.
 3. `utils.process_time_blocks()` turns `TimeBlock.start/end` from datetimes into step offsets (daily
    blocks are collapsed to the first occurrence that has not yet ended; midnight-crossing handled).
-4. Computes the horizon in two passes: `routine_expansion.expand_routines()` against a pessimistic
-   bound feeds `restrictions.calculate_horizon()` (a greedy first-fit simulation over free windows,
-   honouring dependency order and deadlines), then the result gets +1 day of slack, is snapped up to
-   a whole day, and routines are expanded *again* against that final horizon.
+   Weekly blocks (`weekdays` set) are *skipped* here — expanding them needs the horizon.
+4. Computes the horizon in two passes: `routine_expansion.expand_routines()` and
+   `utils.expand_time_blocks()` against a pessimistic bound feed `restrictions.calculate_horizon()`
+   (a greedy first-fit simulation over free windows, honouring dependency order and deadlines), then
+   the result gets +1 day of slack, is snapped up to a whole day, and both are expanded *again*
+   against that final horizon.
 5. `restrictions.create_model()` builds the CP-SAT model; the solver runs it twice (below).
 
 ### Everything is steps, not minutes
@@ -101,11 +103,25 @@ pinned to the start of its day and a deadline of `deadline_time` (or 23:59). Fle
 never chunked. IDs are namespaced `r_{routine_id}_{date}` so per-day `depends_on` links resolve within
 the same day.
 
+### Weekly time blocks
+
+A `TimeBlock` with `weekdays` set (0=Monday, same convention as `Routine`) recurs weekly, and is
+handled exactly like a fixed routine: `utils.expand_time_blocks()` materialises one plain
+`daily=False` block per matching calendar date, keeping `name`/`id`, so nothing downstream needs to
+know about recurrence. Only the time-of-day part of `start`/`end` is used — the date is a template —
+and an occurrence is anchored on the weekday of its *start*, so a Friday 23:00–01:00 block belongs to
+Friday. Expansion starts a day early (`start_day_offset=-1`) so an occurrence that began yesterday
+and is still running at `now` survives.
+
+`utils.iter_active_dates()` is the one place that maps a recurrence rule onto calendar dates; both
+`expand_routines()` and `expand_time_blocks()` go through it. Keep it that way — the weekday
+semantics of blocks and routines should stay identical by construction.
+
 ### Two different time-block expansions
 
 `generate_blocked_intervals()` (model input) clamps to 0 and merges overlaps; `_expand_timeblocks_for_export()`
 (client output) keeps true past boundaries and per-block identity/name. Changing one usually means
-changing the other.
+changing the other. (Both only clone `daily` blocks — weekly ones arrive already expanded.)
 
 ## Conventions and gotchas
 

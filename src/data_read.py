@@ -54,6 +54,7 @@ def load_data(filepath):
             daily=b.get("daily", True),
             name=b.get("name", ""),
             id=b.get("id"),
+            weekdays=b.get("weekdays"),
         )
         for b in data.get("time_blocks", [])
     ]
