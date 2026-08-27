@@ -135,16 +135,13 @@ def expand_time_blocks(time_blocks, now, horizon_minutes, step_minutes=1):
     for b in time_blocks:
         if not b.weekdays:
             continue
-        # Already in step offsets - there is no calendar information left to expand
-        if isinstance(b.start, int) or isinstance(b.end, int):
-            continue
 
-        start_time = b.start.time()
-        start_min = start_time.hour * 60 + start_time.minute
+        start_min = b.start.hour * 60 + b.start.minute
         end_min = b.end.hour * 60 + b.end.minute
         if end_min <= start_min:
             end_min += 24 * 60  # crosses midnight
         duration = timedelta(minutes=end_min - start_min)
+        start_time = b.start.time()
 
         for current_date in iter_active_dates(
             now, horizon_minutes, step_minutes, weekdays=b.weekdays, start_day_offset=-1

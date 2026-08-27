@@ -137,12 +137,6 @@ class TestExpandTimeBlocks(unittest.TestCase):
 
         self.assertEqual(expand_time_blocks([daily, one_off, empty_weekdays], MONDAY_10AM, 14 * 1440), [])
 
-    def test_already_expanded_blocks_are_ignored(self):
-        """Step-offset blocks carry no calendar information, so there is nothing to expand."""
-        already_steps = TimeBlock(start=60, end=120, daily=False, weekdays=[2])
-
-        self.assertEqual(expand_time_blocks([already_steps], MONDAY_10AM, 14 * 1440), [])
-
     # --- Granularity ---
 
     def test_expansion_scales_with_step_minutes(self):
@@ -188,6 +182,20 @@ class TestTimeBlockValidation(unittest.TestCase):
     def test_valid_weekdays_accepted(self):
         block = TimeBlock(start=datetime(2020, 1, 1, 14, 0), end=datetime(2020, 1, 1, 15, 0), weekdays=[0, 6])
         self.assertEqual(block.weekdays, [0, 6])
+
+    def test_weekly_block_is_not_also_daily(self):
+        """`daily` defaults to True, so a weekly block would otherwise claim to be both."""
+        block = TimeBlock(start=datetime(2020, 1, 1, 14, 0), end=datetime(2020, 1, 1, 15, 0), weekdays=[2])
+        self.assertFalse(block.daily)
+
+    def test_weekly_recurrence_requires_datetime_bounds(self):
+        """Step offsets carry no calendar anchor, so weekly recurrence over them is rejected loudly."""
+        with self.assertRaises(ValueError):
+            TimeBlock(start=60, end=120, daily=False, weekdays=[2])
+
+    def test_step_offset_blocks_without_weekdays_are_fine(self):
+        block = TimeBlock(start=60, end=120, daily=False)
+        self.assertIsNone(block.weekdays)
 
 
 class TestWeeklyBlocksThroughScheduler(unittest.TestCase):

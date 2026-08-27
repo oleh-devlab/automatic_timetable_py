@@ -50,12 +50,22 @@ class TimeBlock:
     weekdays: list[int] | None = None
 
     def __post_init__(self):
-        if self.weekdays is not None:
-            for weekday in self.weekdays:
-                if not 0 <= weekday <= 6:
-                    raise ValueError(
-                        f"TimeBlock '{self.name}': weekday must be between 0 (Monday) and 6 (Sunday), got {weekday}"
-                    )
+        if not self.weekdays:
+            return
+
+        for weekday in self.weekdays:
+            if not 0 <= weekday <= 6:
+                raise ValueError(
+                    f"TimeBlock '{self.name}': weekday must be between 0 (Monday) and 6 (Sunday), got {weekday}"
+                )
+        if not isinstance(self.start, datetime) or not isinstance(self.end, datetime):
+            raise ValueError(
+                f"TimeBlock '{self.name}': weekly recurrence needs datetime bounds to anchor on a calendar, "
+                f"got start={self.start!r}, end={self.end!r}"
+            )
+
+        # A weekly block is not a daily one; keep the object from claiming both
+        self.daily = False
 
 
 @dataclass
