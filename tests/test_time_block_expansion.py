@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
+from itertools import pairwise
 
 from src.data_structs import Task, TimeBlock
 from src.scheduler import Scheduler
@@ -22,7 +23,7 @@ class TestIterActiveDates(unittest.TestCase):
         dates = list(iter_active_dates(MONDAY_10AM, 3 * 1440))
         self.assertEqual(dates[0], MONDAY_10AM.date())
         # Consecutive days, no gaps
-        for earlier, later in zip(dates, dates[1:]):
+        for earlier, later in pairwise(dates):
             self.assertEqual((later - earlier).days, 1)
 
     def test_filters_by_weekday(self):
