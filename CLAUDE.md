@@ -39,10 +39,20 @@ that loads JSON and prints a schedule. Keep solver logic out of `main.py`.
    blocks are collapsed to the first occurrence that has not yet ended; midnight-crossing handled).
    Weekly blocks (`weekdays` set) are *skipped* here — expanding them needs the horizon.
 4. Computes the horizon in two passes: `routine_expansion.expand_routines()` and
-   `utils.expand_time_blocks()` against a pessimistic bound feed `restrictions.calculate_horizon()`
-   (a greedy first-fit simulation over free windows, honouring dependency order and deadlines), then
-   the result gets +1 day of slack, is snapped up to a whole day, and both are expanded *again*
-   against that final horizon.
+   `utils.expand_time_blocks()` feed `restrictions.calculate_horizon()` (a greedy first-fit
+   simulation over free windows, honouring dependency order and deadlines), then the result gets
+   +1 day of slack, is snapped up to a whole day, and both are expanded *again* against that final
+   horizon.
+   `calculate_horizon()` grows the stretch it explores on demand — a pass that runs out of free
+   windows before placing everything doubles the bound and retries, up to `max_horizon_days`
+   (default `DEFAULT_MAX_HORIZON_DAYS`, 365). A deadline bounds where a task may go and never
+   raises the horizon, so one distant deadline no longer inflates the whole model.
+   **Whatever is expanded for that simulation must cover the whole explored stretch, not the first
+   bound.** Daily blocks are templates and clone themselves to any bound the simulation reaches;
+   pre-expanded occurrences are a finite list, and where that list ends the simulation sees free
+   time and shortens the horizon. Weekly blocks are therefore expanded to
+   `max_horizon_days * steps_per_day` for the simulation pass (routine-derived blocks still stop at
+   the pessimistic bound and have this gap).
 5. `restrictions.create_model()` builds the CP-SAT model; the solver runs it twice (below).
 
 ### Everything is steps, not minutes

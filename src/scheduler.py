@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, date, timedelta
 from ortools.sat.python import cp_model
 
-from .restrictions import create_model, calculate_horizon
+from .restrictions import create_model, calculate_horizon, DEFAULT_MAX_HORIZON_DAYS
 from .data_structs import Task, TimeBlock, Routine
 from .utils import process_time_blocks, expand_time_blocks, minutes_to_time
 from .routine_expansion import expand_routines
@@ -137,8 +137,15 @@ def _expand_timeblocks_for_export(
 
 
 class Scheduler:
-    def __init__(self, min_horizon_days: int = 14, priority_threshold: int = 5, step_minutes: int = 1):
+    def __init__(
+        self,
+        min_horizon_days: int = 14,
+        priority_threshold: int = 5,
+        step_minutes: int = 1,
+        max_horizon_days: int = DEFAULT_MAX_HORIZON_DAYS,
+    ):
         self.min_horizon_days = min_horizon_days
+        self.max_horizon_days = max_horizon_days
         self.priority_threshold = priority_threshold
         self.step_minutes = step_minutes
 
@@ -160,6 +167,7 @@ class Scheduler:
         start_time: datetime | None = None,
         timeouts: dict[str, float] | None = None,
         min_horizon_days: int | None = None,
+        max_horizon_days: int | None = None,
         priority_threshold: int | None = None,
         num_search_workers: int = 1,
         max_memory_in_mb: int = 256,
@@ -178,6 +186,7 @@ class Scheduler:
                 now += timedelta(minutes=minutes_to_add)
 
         actual_horizon_days = min_horizon_days if min_horizon_days is not None else self.min_horizon_days
+        actual_max_horizon_days = max_horizon_days if max_horizon_days is not None else self.max_horizon_days
         actual_priority_threshold = priority_threshold if priority_threshold is not None else self.priority_threshold
 
         # Process deadlines and duration for tasks
@@ -224,9 +233,15 @@ class Scheduler:
             default=0,
         )
         pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
+        pessimistic_max = min(pessimistic_max, actual_max_horizon_days * steps_per_day)
 
         sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
-        sim_weekly_blocks = expand_time_blocks(self.time_blocks, now, pessimistic_max, self.step_minutes)
+        # calculate_horizon() grows the stretch it explores up to this ceiling. Daily blocks clone
+        # themselves to whatever bound it reaches; pre-expanded occurrences do not, and a weekly
+        # block that stops short of the bound would read as free time and shorten the horizon.
+        sim_weekly_blocks = expand_time_blocks(
+            self.time_blocks, now, actual_max_horizon_days * steps_per_day, self.step_minutes
+        )
         combined_sim_tasks = active_tasks + sim_extra_tasks
         combined_sim_blocks = processed_blocks + sim_extra_blocks + sim_weekly_blocks
 
@@ -236,6 +251,7 @@ class Scheduler:
             combined_sim_blocks,
             min_horizon_days=actual_horizon_days,
             step_minutes=self.step_minutes,
+            max_horizon_days=actual_max_horizon_days,
         )
 
         # 3. Add 1 day of slack and snap to end of day to give the solver breathing room
@@ -264,6 +280,7 @@ class Scheduler:
             priority_threshold=actual_priority_threshold,
             horizon=horizon,
             step_minutes=self.step_minutes,
+            max_horizon_days=actual_max_horizon_days,
         )
 
         # Stage 1: Packer
