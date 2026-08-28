@@ -14,12 +14,13 @@
     {
       "start": "01.11.2023 14:00",
       "end": "01.11.2023 15:30",
-      "daily": true
+      "repeat": "daily"
     },
     {
       "name": "",
       "start": "01.11.2023 18:00",
       "end": "01.11.2023 20:00",
+      "repeat": "weekly",
       "weekdays": [1, 3]
     }
   ],

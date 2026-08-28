@@ -105,7 +105,8 @@ the same day.
 
 ### Weekly time blocks
 
-A `TimeBlock` with `weekdays` set (0=Monday, same convention as `Routine`) recurs weekly, and is
+A `TimeBlock` with `weekdays` set (0=Monday, same convention as `Routine`; `repeat: "weekly"` in
+JSON) recurs weekly, and is
 handled exactly like a fixed routine: `utils.expand_time_blocks()` materialises one plain
 `daily=False` block per matching calendar date, keeping `name`/`id`, so nothing downstream needs to
 know about recurrence. Only the time-of-day part of `start`/`end` is used — the date is a template —
@@ -139,3 +140,12 @@ changing the other. (Both only clone `daily` blocks — weekly ones arrive alrea
   times are `"%H:%M"`, dates `"%d.%m.%Y"`.
 - `data_read.load_data()` defaults `priority` to `0`, while the `Task`/`Routine` dataclasses default to
   `1` — a JSON task with no priority becomes a gravity-free floating task, not a priority-1 one.
+- The JSON grammar says `repeat`, the dataclasses say `daily`. A time block takes
+  `repeat: "once" | "daily" | "weekly"` (default `"daily"`), which `load_data()` normalises into the
+  `daily` bool plus `weekdays`; routines keep their own `repeat: "daily" | "weekly"`. `weekdays` is
+  required for `"weekly"` and rejected for anything else, in both. Keep the enum on the input side
+  only — see "Weekly time blocks" for why the step layer wants a bool.
+- The parser is strict: unknown fields (at the top level or inside any task, block or routine) and
+  missing required ones raise `ValueError` naming the element, e.g. `time_blocks[0]`. Adding a field
+  to a dataclass means adding it to the matching `_*_FIELDS` set in `data_read.py`, or files using it
+  will be rejected.
