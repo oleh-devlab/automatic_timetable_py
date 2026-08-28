@@ -1,8 +1,11 @@
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
-from src.data_structs import TimeBlock
-from src.scheduler import ScheduledTimeBlock, _expand_timeblocks_for_export
+from ortools.sat.python import cp_model
+
+from src.data_structs import Routine, Task, TimeBlock
+from src.scheduler import ScheduledTimeBlock, Scheduler, _expand_timeblocks_for_export
 
 
 class TestExpandTimeblocksForExport(unittest.TestCase):
@@ -134,6 +137,72 @@ class TestExpandTimeblocksForExport(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].start_time, self.now + timedelta(minutes=50))
         self.assertEqual(result[0].end_time, self.now + timedelta(minutes=100))
+
+
+class TestFixedRoutinesAreNotExportedTwice(unittest.TestCase):
+    """A fixed routine reaches the client once, as a ScheduledRoutine — never also as a time block."""
+
+    NOW = datetime(2026, 7, 6, 10, 0)  # Monday
+
+    def _solve(self, routines=(), blocks=(), tasks=(), **kwargs):
+        scheduler = Scheduler(min_horizon_days=2, priority_threshold=5, step_minutes=5)
+        for routine in routines:
+            scheduler.add_routine(routine)
+        for block in blocks:
+            scheduler.add_time_block(block)
+        for task in tasks:
+            scheduler.add_task(task)
+        return scheduler.solve(start_time=self.NOW, **kwargs)
+
+    def _lecture(self):
+        return Routine(
+            name="Lecture",
+            type="fixed",
+            repeat="daily",
+            duration=timedelta(minutes=90),
+            time=time(14, 0),
+            id=7,
+        )
+
+    def test_fixed_routine_absent_from_scheduled_timeblocks(self):
+        result = self._solve(routines=[self._lecture()])
+
+        self.assertTrue(result.is_successful)
+        self.assertEqual([b for b in result.scheduled_timeblocks if b.name == "Lecture"], [])
+
+    def test_fixed_routine_still_exported_as_a_routine(self):
+        result = self._solve(routines=[self._lecture()])
+
+        lectures = [r for r in result.scheduled_routines if r.task.name == "Lecture"]
+        self.assertTrue(lectures)
+        self.assertTrue(all(r.routine_type == "fixed" and r.routine_id == 7 for r in lectures))
+        # Exact calendar bounds, not step-rounded ones
+        first = min(lectures, key=lambda r: r.start_time)
+        self.assertEqual(first.start_time, datetime(2026, 7, 6, 14, 0))
+        self.assertEqual(first.end_time, datetime(2026, 7, 6, 15, 30))
+
+    def test_user_time_blocks_are_still_exported(self):
+        """Dropping routine-derived blocks must not take the user's own blocks with them."""
+        lunch = TimeBlock(start=datetime(2020, 1, 1, 12, 0), end=datetime(2020, 1, 1, 13, 0), daily=True, name="Lunch")
+
+        result = self._solve(routines=[self._lecture()], blocks=[lunch])
+
+        self.assertEqual({b.name for b in result.scheduled_timeblocks}, {"Lunch"})
+
+    def test_nothing_is_exported_when_the_solve_fails(self):
+        """A failed solve yields no schedule at all — time blocks included."""
+        lunch = TimeBlock(start=datetime(2020, 1, 1, 12, 0), end=datetime(2020, 1, 1, 13, 0), daily=True, name="Lunch")
+        task = Task(name="Homework", duration=timedelta(minutes=30), priority=5)
+
+        # Every task is optional, so the model itself is always satisfiable; only a solver that
+        # returns no solution (timeout, memory limit) can drive the unsuccessful path.
+        with patch.object(cp_model.CpSolver, "solve", return_value=cp_model.INFEASIBLE):
+            result = self._solve(blocks=[lunch], tasks=[task])
+
+        self.assertFalse(result.is_successful)
+        self.assertEqual(result.scheduled_timeblocks, [])
+        self.assertEqual(result.scheduled_tasks, [])
+        self.assertEqual(result.scheduled_routines, [])
 
 
 class TestScheduledTimeBlockDataclass(unittest.TestCase):
