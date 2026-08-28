@@ -350,7 +350,9 @@ class Scheduler:
                     if getattr(task, "is_routine", False):
                         routine_id = getattr(task, "routine_id", None)
                         result.scheduled_routines.append(
-                            ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible", routine_id=routine_id)
+                            ScheduledRoutine(
+                                task, start_time_str, end_time_str, routine_type="flexible", routine_id=routine_id
+                            )
                         )
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
