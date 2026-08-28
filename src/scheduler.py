@@ -235,7 +235,9 @@ class Scheduler:
         pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
         pessimistic_max = min(pessimistic_max, actual_max_horizon_days * steps_per_day)
 
-        sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
+        sim_extra_tasks, sim_extra_blocks, _ = expand_routines(
+            self.routines, now, actual_max_horizon_days * steps_per_day, self.step_minutes
+        )
         # calculate_horizon() grows the stretch it explores up to this ceiling. Daily blocks clone
         # themselves to whatever bound it reaches; pre-expanded occurrences do not, and a weekly
         # block that stops short of the bound would read as free time and shorten the horizon.
