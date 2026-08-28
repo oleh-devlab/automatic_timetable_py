@@ -273,6 +273,10 @@ class Scheduler:
         # Combine base and extra data
         combined_tasks = active_tasks + extra_tasks
         combined_blocks = processed_blocks + extra_blocks + weekly_blocks
+        # Fixed routines reach the client as ScheduledRoutine (built from routine_info below), which
+        # keeps their exact calendar bounds and routine identity. Their TimeBlock twins exist only to
+        # reserve time in the model — exporting those too would render every fixed routine twice.
+        export_blocks = processed_blocks + weekly_blocks
 
         # Create model
         model = create_model(
@@ -351,7 +355,6 @@ class Scheduler:
 
         result = ScheduleResult(packer_status_name=packer_str, gravity_status_name=gravity_str)
         result.horizon = horizon * self.step_minutes
-        result.scheduled_timeblocks = _expand_timeblocks_for_export(combined_blocks, horizon, now, self.step_minutes)
 
         # Add pre-filtered expired items to skipped lists
         for task in expired_tasks:
@@ -360,6 +363,8 @@ class Scheduler:
             result.skipped_routines.append(SkippedTask(task))
 
         if result.is_successful:
+            result.scheduled_timeblocks = _expand_timeblocks_for_export(export_blocks, horizon, now, self.step_minutes)
+
             for task in combined_tasks:
                 # Use safe_solution instead of solver.value()
                 if safe_solution.get(task.presence_var, 0):

@@ -135,6 +135,12 @@ semantics of blocks and routines should stay identical by construction. Both pas
 (client output) keeps true past boundaries and per-block identity/name. Changing one usually means
 changing the other. (Both only clone `daily` blocks — weekly ones arrive already expanded.)
 
+The two are fed *different* lists. The model gets `combined_blocks` (user blocks + fixed-routine
+blocks + weekly blocks); the export gets `export_blocks`, which drops the fixed-routine ones — those
+reach the client as `ScheduledRoutine` built from `routine_info`, with exact calendar bounds and
+`routine_id`, so exporting their TimeBlock twins too would render every fixed routine twice.
+`scheduled_timeblocks` is only populated on a successful solve, like every other scheduled list.
+
 ## Conventions and gotchas
 
 - Tests bypass `Scheduler` entirely: `tests/solver_test_utils.BaseSolverTest._solve()` computes the
