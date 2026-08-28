@@ -13,7 +13,7 @@ class TestDataReadRoutines(unittest.TestCase):
         """Tests that load_data correctly parses the routines section."""
         mock_json_data = {
             "user_tasks": [{"name": "Task 1", "duration": 60}],
-            "time_blocks": [{"start": "01.07.2026 00:00", "end": "01.07.2026 10:00", "daily": True}],
+            "time_blocks": [{"start": "01.07.2026 00:00", "end": "01.07.2026 10:00", "repeat": "daily"}],
             "routines": [
                 {"name": "Workout", "type": "fixed", "repeat": "daily", "time": "07:00", "duration": 60},
                 {

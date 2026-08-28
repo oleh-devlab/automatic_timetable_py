@@ -5,7 +5,7 @@ from ortools.sat.python import cp_model
 
 from .restrictions import create_model, calculate_horizon, DEFAULT_MAX_HORIZON_DAYS
 from .data_structs import Task, TimeBlock, Routine
-from .utils import process_time_blocks, minutes_to_time
+from .utils import process_time_blocks, expand_time_blocks, minutes_to_time
 from .routine_expansion import expand_routines
 
 
@@ -235,9 +235,17 @@ class Scheduler:
         pessimistic_max = max(base_horizon * 3 + steps_per_day, actual_horizon_days * steps_per_day, max_deadline)
         pessimistic_max = min(pessimistic_max, actual_max_horizon_days * steps_per_day)
 
-        sim_extra_tasks, sim_extra_blocks, _ = expand_routines(self.routines, now, pessimistic_max, self.step_minutes)
+        sim_extra_tasks, sim_extra_blocks, _ = expand_routines(
+            self.routines, now, actual_max_horizon_days * steps_per_day, self.step_minutes
+        )
+        # calculate_horizon() grows the stretch it explores up to this ceiling. Daily blocks clone
+        # themselves to whatever bound it reaches; pre-expanded occurrences do not, and a weekly
+        # block that stops short of the bound would read as free time and shorten the horizon.
+        sim_weekly_blocks = expand_time_blocks(
+            self.time_blocks, now, actual_max_horizon_days * steps_per_day, self.step_minutes
+        )
         combined_sim_tasks = active_tasks + sim_extra_tasks
-        combined_sim_blocks = processed_blocks + sim_extra_blocks
+        combined_sim_blocks = processed_blocks + sim_extra_blocks + sim_weekly_blocks
 
         # 2. Calculate mathematical minimum horizon using simulation (tracks only non-routine tasks)
         simulated_horizon = calculate_horizon(
@@ -254,6 +262,7 @@ class Scheduler:
 
         # 4. Expand real routines up to the snapped horizon
         extra_tasks, extra_blocks, routine_info = expand_routines(self.routines, now, horizon, self.step_minutes)
+        weekly_blocks = expand_time_blocks(self.time_blocks, now, horizon, self.step_minutes)
 
         # Pre-filter expired routine tasks
         expired_routine_tasks = [
@@ -263,7 +272,7 @@ class Scheduler:
 
         # Combine base and extra data
         combined_tasks = active_tasks + extra_tasks
-        combined_blocks = processed_blocks + extra_blocks
+        combined_blocks = processed_blocks + extra_blocks + weekly_blocks
 
         # Create model
         model = create_model(

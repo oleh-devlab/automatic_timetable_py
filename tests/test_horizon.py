@@ -1,8 +1,8 @@
 import math
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
-from src.data_structs import Task, TimeBlock
+from src.data_structs import Routine, Task, TimeBlock
 from src.restrictions import calculate_horizon
 from src.scheduler import Scheduler
 from src.utils import process_time_blocks
@@ -109,6 +109,75 @@ class TestHorizonNotInflatedByFarDeadline(unittest.TestCase):
             horizon_days,
             14,
             f"horizon blown up to {horizon_days:.0f} days by one distant deadline",
+        )
+
+
+class TestHorizonSeesPreExpandedOccurrences(unittest.TestCase):
+    """
+    A daily block is a template that clones itself to whatever bound the simulation grows to.
+    Weekly blocks are materialised into a finite list of occurrences up front, so if that list
+    stops short of the explored stretch the simulation reads the remainder as free time and
+    settles on a horizon that is too short.
+    """
+
+    def _weekly_calendar(self):
+        """The same calendar as _tight_calendar(), written as weekly blocks on every weekday."""
+        every_day = [0, 1, 2, 3, 4, 5, 6]
+        return [
+            TimeBlock(datetime(2026, 7, 6, 23, 0), datetime(2026, 7, 7, 7, 0), name="sleep", weekdays=every_day),
+            TimeBlock(datetime(2026, 7, 6, 9, 0), datetime(2026, 7, 6, 18, 0), name="job", weekdays=every_day),
+            TimeBlock(datetime(2026, 7, 6, 18, 0), datetime(2026, 7, 6, 21, 0), name="evening", weekdays=every_day),
+        ]
+
+    def _solve(self, blocks):
+        scheduler = Scheduler(min_horizon_days=3, priority_threshold=5, step_minutes=STEP)
+        for i in range(12):
+            scheduler.add_task(Task(name=f"t{i}", duration=timedelta(minutes=120), priority=3, id=f"t{i}"))
+        for block in blocks:
+            scheduler.add_time_block(block)
+        return scheduler.solve(start_time=NOW, timeouts={"packer": 10.0, "gravity": 5.0}, num_search_workers=8)
+
+    def test_weekly_blocks_do_not_shorten_the_horizon(self):
+        """12 two-hour tasks into 4 free hours a day need ~6 days, whichever way the block is written."""
+        result = self._solve(self._weekly_calendar())
+
+        skipped = sorted(s.task.name for s in result.skipped_tasks)
+        self.assertEqual(skipped, [], f"tasks dropped because weekly blocks ran out mid-simulation: {skipped}")
+
+    def test_weekly_and_daily_calendars_agree(self):
+        """The same busy hours expressed either way must produce the same plan."""
+        weekly = self._solve(self._weekly_calendar())
+        daily = self._solve(_tight_calendar())
+
+        self.assertEqual(weekly.horizon, daily.horizon)
+        self.assertEqual(len(weekly.scheduled_tasks), len(daily.scheduled_tasks))
+
+    def test_fixed_routines_do_not_run_out_mid_simulation(self):
+        """
+        Routines are materialised per day exactly like weekly blocks, so they need the same
+        reach. A fixed routine that stops short leaves the rest of the stretch looking free,
+        the simulation finishes early, and the horizon comes back too short to hold the work.
+
+        An hour of routine on top of the four free hours leaves three, so each two-hour task
+        needs a day of its own and twelve of them need twelve days.
+        """
+        scheduler = Scheduler(min_horizon_days=3, priority_threshold=5, step_minutes=STEP)
+        for i in range(12):
+            scheduler.add_task(Task(name=f"t{i}", duration=timedelta(minutes=120), priority=3, id=f"t{i}"))
+        for block in _tight_calendar():
+            scheduler.add_time_block(block)
+        scheduler.add_routine(
+            Routine(name="gym", type="fixed", repeat="daily", duration=timedelta(minutes=60), time=time(7, 0), id=1)
+        )
+
+        result = scheduler.solve(start_time=NOW, timeouts={"packer": 10.0, "gravity": 5.0}, num_search_workers=8)
+
+        skipped = sorted(s.task.name for s in result.skipped_tasks)
+        self.assertEqual(skipped, [], f"tasks dropped because routines ran out mid-simulation: {skipped}")
+        self.assertGreaterEqual(
+            result.horizon / 60 / 24,
+            12,
+            "horizon has to reach the twelfth day for the twelfth task to have a slot",
         )
 
 

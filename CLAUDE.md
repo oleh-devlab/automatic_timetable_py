@@ -37,14 +37,22 @@ that loads JSON and prints a schedule. Keep solver logic out of `main.py`.
    model is built.
 3. `utils.process_time_blocks()` turns `TimeBlock.start/end` from datetimes into step offsets (daily
    blocks are collapsed to the first occurrence that has not yet ended; midnight-crossing handled).
-4. Computes the horizon in two passes: `routine_expansion.expand_routines()` against a pessimistic
-   bound feeds `restrictions.calculate_horizon()` (a greedy first-fit simulation over free windows,
-   honouring dependency order and deadlines), then the result gets +1 day of slack, is snapped up to
-   a whole day, and routines are expanded *again* against that final horizon.
+   Weekly blocks (`weekdays` set) are *skipped* here — expanding them needs the horizon.
+4. Computes the horizon in two passes: `routine_expansion.expand_routines()` and
+   `utils.expand_time_blocks()` feed `restrictions.calculate_horizon()` (a greedy first-fit
+   simulation over free windows, honouring dependency order and deadlines), then the result gets
+   +1 day of slack, is snapped up to a whole day, and both are expanded *again* against that final
+   horizon.
    `calculate_horizon()` grows the stretch it explores on demand — a pass that runs out of free
    windows before placing everything doubles the bound and retries, up to `max_horizon_days`
    (default `DEFAULT_MAX_HORIZON_DAYS`, 365). A deadline bounds where a task may go and never
    raises the horizon, so one distant deadline no longer inflates the whole model.
+   **Whatever is expanded for that simulation must cover the whole explored stretch, not the first
+   bound.** Daily blocks are templates and clone themselves to any bound the simulation reaches;
+   pre-expanded occurrences are a finite list, and where that list ends the simulation sees free
+   time and shortens the horizon. Both `expand_time_blocks()` and `expand_routines()` are therefore
+   given `max_horizon_days * steps_per_day` for the simulation pass, and only the second, real
+   expansion is bounded by the horizon that comes out of it.
 5. `restrictions.create_model()` builds the CP-SAT model; the solver runs it twice (below).
 
 ### Everything is steps, not minutes
@@ -100,16 +108,32 @@ in the scheduler; follow that convention rather than widening `Task`.
 
 `expand_routines()` materialises recurring items per day across the horizon: `type="fixed"` becomes a
 `TimeBlock` (plus a `routine_info` entry that `Scheduler.solve()` turns back into a `ScheduledRoutine`
-without ever entering the model), `type="flexible"` becomes a synthetic `Task` with `start_steps`
+without ever entering the model; an occurrence that started yesterday and is still running counts), `type="flexible"` becomes a synthetic `Task` with `start_steps`
 pinned to the start of its day and a deadline of `deadline_time` (or 23:59). Flexible routines are
 never chunked. IDs are namespaced `r_{routine_id}_{date}` so per-day `depends_on` links resolve within
 the same day.
+
+### Weekly time blocks
+
+A `TimeBlock` with `weekdays` set (0=Monday, same convention as `Routine`; `repeat: "weekly"` in
+JSON) recurs weekly, and is
+handled exactly like a fixed routine: `utils.expand_time_blocks()` materialises one plain
+`daily=False` block per matching calendar date, keeping `name`/`id`, so nothing downstream needs to
+know about recurrence. Only the time-of-day part of `start`/`end` is used — the date is a template —
+and an occurrence is anchored on the weekday of its *start*, so a Friday 23:00–01:00 block belongs to
+Friday.
+
+`utils.iter_active_dates()` is the one place that maps a recurrence rule onto calendar dates; both
+`expand_routines()` and `expand_time_blocks()` go through it. Keep it that way — the weekday
+semantics of blocks and routines should stay identical by construction. Both pass
+`start_day_offset=-1`, so an occurrence that began yesterday and is still running at `now` survives
+(the past-end filter, not the day range, is what drops finished ones).
 
 ### Two different time-block expansions
 
 `generate_blocked_intervals()` (model input) clamps to 0 and merges overlaps; `_expand_timeblocks_for_export()`
 (client output) keeps true past boundaries and per-block identity/name. Changing one usually means
-changing the other.
+changing the other. (Both only clone `daily` blocks — weekly ones arrive already expanded.)
 
 ## Conventions and gotchas
 
@@ -126,3 +150,12 @@ changing the other.
   times are `"%H:%M"`, dates `"%d.%m.%Y"`.
 - `data_read.load_data()` defaults `priority` to `0`, while the `Task`/`Routine` dataclasses default to
   `1` — a JSON task with no priority becomes a gravity-free floating task, not a priority-1 one.
+- The JSON grammar says `repeat`, the dataclasses say `daily`. A time block takes
+  `repeat: "once" | "daily" | "weekly"` (default `"daily"`), which `load_data()` normalises into the
+  `daily` bool plus `weekdays`; routines keep their own `repeat: "daily" | "weekly"`. `weekdays` is
+  required for `"weekly"` and rejected for anything else, in both. Keep the enum on the input side
+  only — see "Weekly time blocks" for why the step layer wants a bool.
+- The parser is strict: unknown fields (at the top level or inside any task, block or routine) and
+  missing required ones raise `ValueError` naming the element, e.g. `time_blocks[0]`. Adding a field
+  to a dataclass means adding it to the matching `_*_FIELDS` set in `data_read.py`, or files using it
+  will be rejected.
