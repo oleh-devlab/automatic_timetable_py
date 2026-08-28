@@ -50,9 +50,9 @@ that loads JSON and prints a schedule. Keep solver logic out of `main.py`.
    **Whatever is expanded for that simulation must cover the whole explored stretch, not the first
    bound.** Daily blocks are templates and clone themselves to any bound the simulation reaches;
    pre-expanded occurrences are a finite list, and where that list ends the simulation sees free
-   time and shortens the horizon. Weekly blocks are therefore expanded to
-   `max_horizon_days * steps_per_day` for the simulation pass (routine-derived blocks still stop at
-   the pessimistic bound and have this gap).
+   time and shortens the horizon. Both `expand_time_blocks()` and `expand_routines()` are therefore
+   given `max_horizon_days * steps_per_day` for the simulation pass, and only the second, real
+   expansion is bounded by the horizon that comes out of it.
 5. `restrictions.create_model()` builds the CP-SAT model; the solver runs it twice (below).
 
 ### Everything is steps, not minutes
