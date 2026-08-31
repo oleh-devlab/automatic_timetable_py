@@ -138,6 +138,35 @@ class TestCalculateTaskWeight(unittest.TestCase):
         # Both should be clamped, so their weights should be exactly equal
         self.assertEqual(weight1, weight2)
 
+    def test_no_deadline_matches_an_arbitrarily_distant_deadline(self):
+        """
+        A missing deadline must weigh exactly as much as a deadline so distant that it
+        gets clamped, and strictly less than a deadline inside the horizon.
+
+        The weight function reaches that answer through two separate expressions - the
+        "no deadline" branch and the clamp - which have to agree on where urgency stops.
+        Should the horizon ever be widened on one side only, a task with no deadline at
+        all flips from the least urgent task in its tier to the most urgent one, and
+        this identity is what catches it. Where the clamp itself lands is pinned by
+        test_very_distant_deadline.
+        """
+
+        def weight(deadline_days):
+            task = Task(name="t", duration=timedelta(minutes=60), priority=3)
+            task.deadline_steps = None if deadline_days is None else deadline_days * 1440
+            return calculate_task_weight(task, priority_threshold=10)
+
+        self.assertEqual(
+            weight(None),
+            weight(36500),  # ~100 years, far past any sensible horizon
+            "No deadline must weigh the same as a deadline distant enough to be clamped",
+        )
+        self.assertGreater(
+            weight(365),
+            weight(None),
+            "A deadline inside the horizon must beat having no deadline at all",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
