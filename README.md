@@ -36,8 +36,8 @@ To eliminate the combinatorial explosion and prevent time-bonuses from accidenta
 2. **Stage 2 (Gravity):** Takes the locked set of tasks from Stage 1 and applies priority-based gravity to sort them visually (pushing them to the left).
 
 **Key Rules:**
-1. **Absolute Tier Dominance:** The solver mathematically guarantees that **any** single High Tier task is more valuable than **all** Low Tier tasks combined.
-2. **Inside a Tier (Deadlines vs. Priorities):** Within the same tier, tasks are prioritized by their deadlines. A closer deadline always outweighs a distant one, regardless of priority.
+1. **Tier Dominance:** A single High Tier task outweighs any realistic number of Low Tier tasks combined. The dominance is large but finite: Stage 1 maximizes a *sum* of weights, and the High Tier base weight is 1000x the Low Tier one. In the worst case — every Low Tier task at maximum urgency (priority 4, deadline expiring right now) — one High Tier task outweighs up to **522** of them; with ordinary Low Tier weights the figure is closer to a thousand. Beyond that the sum wins. Hand-written task lists never come near this, but routines are materialized once per day across the whole horizon and default to `priority = 1` (Low Tier), so a long horizon with many daily routines is the one setup that can approach it.
+2. **Inside a Tier (Deadlines vs. Priorities):** Within the same tier, tasks are prioritized by their deadlines, at a granularity of **whole days**. A deadline closer by a day or more always outweighs a distant one, regardless of priority. Deadlines falling on the same day are indistinguishable to the weight function (a deadline in 1 hour and one in 23 hours score identically), and there priority becomes the deciding factor. This holds as long as the priorities inside one tier span less than 15 points, which the recommended 0–10 range guarantees.
 3. **Early Placement Gravity:** In Stage 2, Priority acts as an exponential "gravity" multiplier. Higher priority tasks are pulled to the earliest available slots in your day (e.g., priority 9 will be automatically scheduled before priority 2).
 4. **Chunk Minimization & Magnetic Grouping:** If a task is split into chunks, the solver naturally minimizes the number of chunks used to prevent over-fragmentation. It also applies a penalty for gaps, forcing chunks of the same task to stick closely together.
 5. **Floating Tasks (Priority 0):** A priority of `0` removes the early-placement gravity entirely. These tasks act as "fillers" — they will be pushed to the evening or the end of the week, filling gaps without competing for your most productive morning slots.
@@ -48,6 +48,32 @@ Routines are recurring tasks that should be performed regularly (daily or weekly
 There are two types of routines:
 - **Fixed-time routines**: Tied to a specific `time` (e.g., training every day at 07:00). These act like blocked intervals but represent tasks.
 - **Flexible routines**: These behave like normal tasks with a `duration`, `priority`, and an optional `deadline_time` (e.g., study words before 18:00). The solver will find the optimal time for them within each day. Flexible routines do not support Pomodoro chunking (they are scheduled as a single block), but they do support `break_duration`.
+
+### 5. Solver Settings
+
+`Scheduler.solve()` exposes the CP-SAT budget through `timeouts`
+(`{"packer": ..., "gravity": ...}`, both `0.5` s by default), `num_search_workers`
+(default `1`) and `max_memory_in_mb` (default `256`).
+
+**Use `num_search_workers=2` or more whenever the input may be oversubscribed.**
+This is a matter of getting an answer at all, not of speed. Stage 1 is driven by its
+objective, and with a single worker CP-SAT keeps diving towards high-weight
+assignments, hits conflicts and restarts, without ever settling for a cheap but valid
+one — even though "schedule nothing" is always a feasible solution. Extra workers add
+strategies aimed at reaching a feasible solution quickly, and they land one immediately.
+
+Measured on 24 four-hour chunked tasks sharing a deadline 5 days out, against a
+calendar with sleep, lunch and evening blocked (3 runs each):
+
+| packer timeout | 1 worker | 2 workers | 4 workers | 8 workers |
+|---|---|---|---|---|
+| 0.5 s | 0/3 | 3/3 | 3/3 | 1/3 |
+| 2.0 s | 0/3 | 3/3 | 3/3 | 3/3 |
+
+Raising the timeout does not rescue a single worker; adding a second one does. When the
+Packer stage does fail this way, `ScheduleResult.packer_status` is `UNKNOWN`,
+`is_successful` is `False`, and every list on the result is empty — including
+`skipped_tasks`, so check the status rather than inferring from an empty schedule.
 
 ## Project Structure
 

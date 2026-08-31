@@ -202,17 +202,35 @@ def calculate_task_weight(task, priority_threshold=5, step_minutes=1):
     High tier tasks (priority >= priority_threshold) absolutely dominate.
     Inside each tier, deadlines dominate over priority.
     """
-    priority_step = 1
+    # Deadlines farther away than this are indistinguishable from each other and from
+    # having no deadline at all. Raising it widens the range of deadlines the model can
+    # still tell apart, but weakens tier dominance, because it raises the maximum Low
+    # Tier weight one High Tier task has to outweigh: at 365 days one High Tier task
+    # outweighs 916 Low Tier ones, at 3650 it outweighs 522, at 36500 only 98.
+    deadline_horizon_days = 3650  # 10 years
+
+    # One day of deadline difference has to outweigh the whole priority span inside a
+    # tier, so this must stay above max_priority - min_priority (10 for the documented
+    # 0-10 range). That is what makes deadlines dominate priorities within a tier.
     deadline_step = 15
+    priority_step = 1
 
-    # max_deadline_bonus = 3650 * deadline_step
-
+    # Stage 1 maximizes a *sum* of weights, so the gap between the tiers is not about
+    # beating a single Low Tier task - it is how many of them it takes to outweigh one
+    # High Tier task. Hence the deliberately huge factor over the max in-tier weight.
     low_tier_base = 60000
     high_tier_base = low_tier_base * 1000
 
-    steps_per_day = 1440 // step_minutes
-    deadline_days = task.deadline_steps // steps_per_day if getattr(task, "deadline_steps", None) is not None else 3650
-    days_inverted = max(0, 3650 - deadline_days)
+    # A missing deadline earns no bonus at all, which is also what a deadline sitting on
+    # (or beyond) the horizon earns. Keep the two in sync: computing the missing case as
+    # "a deadline exactly deadline_horizon_days away" would silently turn into maximum
+    # urgency the moment the horizon and that substitute drift apart.
+    if getattr(task, "deadline_steps", None) is None:
+        days_inverted = 0
+    else:
+        steps_per_day = 1440 // step_minutes
+        deadline_days = task.deadline_steps // steps_per_day
+        days_inverted = max(0, deadline_horizon_days - deadline_days)
 
     weighted_priority = task.priority * priority_step
 
@@ -405,7 +423,17 @@ def create_model(
 
     for i, task in enumerate(user_tasks):
         fixed_weight = calculate_task_weight(task, priority_threshold, step_minutes)
-        presence_terms.append(task.presence_var * fixed_weight)
+        # Chunk sizes are capped at max_chunk_duration and have to add up to the whole
+        # duration, so a chunked task cannot be placed in fewer than this many pieces no
+        # matter how the calendar looks. Refunding them (only when the task is actually
+        # scheduled, or the term would be a constant and cancel out) leaves the -1 below
+        # charging for over-fragmentation alone, instead of charging every long task for
+        # its length: an 8h task in 30-minute pieces used to arrive 16 points down, which
+        # is more than a whole day of deadline is worth.
+        unavoidable_chunks = 0
+        if getattr(task, "chunks", None):
+            unavoidable_chunks = math.ceil(task.duration_steps / task.max_chunk_duration_steps)
+        presence_terms.append(task.presence_var * (fixed_weight + unavoidable_chunks))
 
         # 3. Force avoiding unnecessary splits (Micro-penalty in Stage 1)
         if getattr(task, "chunks", None):
