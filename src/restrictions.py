@@ -423,7 +423,17 @@ def create_model(
 
     for i, task in enumerate(user_tasks):
         fixed_weight = calculate_task_weight(task, priority_threshold, step_minutes)
-        presence_terms.append(task.presence_var * fixed_weight)
+        # Chunk sizes are capped at max_chunk_duration and have to add up to the whole
+        # duration, so a chunked task cannot be placed in fewer than this many pieces no
+        # matter how the calendar looks. Refunding them (only when the task is actually
+        # scheduled, or the term would be a constant and cancel out) leaves the -1 below
+        # charging for over-fragmentation alone, instead of charging every long task for
+        # its length: an 8h task in 30-minute pieces used to arrive 16 points down, which
+        # is more than a whole day of deadline is worth.
+        unavoidable_chunks = 0
+        if getattr(task, "chunks", None):
+            unavoidable_chunks = math.ceil(task.duration_steps / task.max_chunk_duration_steps)
+        presence_terms.append(task.presence_var * (fixed_weight + unavoidable_chunks))
 
         # 3. Force avoiding unnecessary splits (Micro-penalty in Stage 1)
         if getattr(task, "chunks", None):

@@ -69,9 +69,16 @@ terms as an ad-hoc `model.time_bonus_terms` attribute on the `CpModel`. `Schedul
 
 - **Stage 1 (Packer)** — decides *which* tasks fit, using `calculate_task_weight()`:
   `high_tier_base = 60_000_000` for `priority >= priority_threshold` vs `low_tier_base = 60_000` below
-  it (one high-tier task outweighs any number of low-tier ones), plus a deadline bonus
-  (`(3650 - deadline_days) * 15`, so nearer deadlines dominate priority *within* a tier), plus the raw
-  priority as a tiebreak. Each present chunk also costs `-1`, discouraging over-fragmentation.
+  it (one high-tier task outweighs a sum of low-tier ones — 522 of them at their most urgent), plus a
+  deadline bonus (`(deadline_horizon_days - deadline_days) * 15`, so nearer deadlines dominate priority
+  *within* a tier), plus the raw priority as a tiebreak. `deadline_horizon_days` is both the clamp and
+  the "no deadline" case, which is why the latter is written as its own branch rather than substituted
+  into the formula; raising it widens the range of deadlines that stay comparable but lowers that 522.
+  Each present chunk also costs `-1`, discouraging over-fragmentation, and `create_model()` refunds
+  `ceil(duration_steps / max_chunk_duration_steps)` of them onto `presence_var`, so the penalty falls
+  on splits the calendar forced rather than on the task simply being long. Everything below one day of
+  deadline (`15`) shares one scale — priority *and* the surviving chunk penalty — so that budget is
+  what keeps deadlines dominant inside a tier.
 - **Stage 2 (Gravity)** — presence variables are pinned to the Stage 1 values, then the objective is
   replaced with the time bonuses: `priority**3 * 1000` per step pulled earlier, minus
   `priority**3 * 10` per step of gap between a task's first and last chunk. Priority 0 disables

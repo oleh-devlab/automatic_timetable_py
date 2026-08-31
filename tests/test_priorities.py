@@ -77,6 +77,44 @@ class TestPriorities(BaseSolverTest):
         self.assertTrue(solver.value(task_close.presence_var), "Closer deadline should win in 1-on-1")
         self.assertFalse(solver.value(task_far.presence_var))
 
+    def test_chunking_does_not_cost_a_task_its_deadline(self):
+        """
+        Same tier, one 8-hour slot, two 8-hour tasks. The only difference between them
+        is that the task with the nearer deadline is chunked.
+
+        Stage 1 charges -1 per present chunk, and an 8-hour task in 30-minute pieces can
+        never use fewer than 16 of them. Left uncompensated that fixed cost is larger
+        than the 11 points a day of deadline is worth here, so the later deadline would
+        win purely because the earlier task is long and chunked.
+        """
+        chunked = Task(
+            name="chunked_near_deadline",
+            duration=timedelta(minutes=480),
+            priority=0,
+            min_chunk_duration=timedelta(minutes=25),
+            max_chunk_duration=timedelta(minutes=30),
+            break_duration=timedelta(minutes=0),
+        )
+        chunked.deadline_steps = 1440
+
+        single = Task(
+            name="single_far_deadline",
+            duration=timedelta(minutes=480),
+            priority=4,
+            break_duration=timedelta(minutes=0),
+        )
+        single.deadline_steps = 1440 * 2
+
+        time_blocks = [TimeBlock(start=480, end=30000, daily=False)]
+
+        solver = self._solve([chunked, single], time_blocks=time_blocks)
+
+        self.assertTrue(
+            solver.value(chunked.presence_var),
+            "The nearer deadline must win even though the task is split into chunks",
+        )
+        self.assertFalse(solver.value(single.presence_var))
+
     def test_priority_tiebreaker_same_deadline(self):
         """
         Same tier, same deadline: the task with the higher priority wins.
