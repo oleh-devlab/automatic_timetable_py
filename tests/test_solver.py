@@ -162,8 +162,12 @@ class TestSolver(BaseSolverTest):
           2. The impossible task gets presence_var == False (dropped gracefully).
           3. A smaller task that fits gets scheduled (maximizing scheduled tasks).
         """
-        # Block everything from minute 10 onwards
-        time_blocks = [TimeBlock(start=10, end=30000, daily=False)]
+        # Leave two 10-minute gaps only: [0, 10] and [30000, 30010]. Nothing longer than ten
+        # minutes fits anywhere, no matter how far ahead the horizon simulation decides to look.
+        time_blocks = [
+            TimeBlock(start=10, end=30000, daily=False),
+            TimeBlock(start=30010, end=10**9, daily=False),
+        ]
 
         task_small = Task(name="fits", duration=timedelta(minutes=10), break_duration=timedelta(minutes=0))
         task_large = Task(name="no_fit", duration=timedelta(minutes=20), break_duration=timedelta(minutes=0))
@@ -358,8 +362,12 @@ class TestSolver(BaseSolverTest):
         """
         from src.data_structs import TimeBlock
 
-        # Block almost everything, leave only 10 minutes free
-        time_blocks = [TimeBlock(start=10, end=30000, daily=False)]
+        # Block almost everything, leaving two 10-minute gaps that no 20-minute chunk can use,
+        # so the task is impossible on its own merits rather than merely out of horizon reach.
+        time_blocks = [
+            TimeBlock(start=10, end=30000, daily=False),
+            TimeBlock(start=30010, end=10**9, daily=False),
+        ]
 
         # Task requires 60 min, chunked into pieces of 20
         task = Task(

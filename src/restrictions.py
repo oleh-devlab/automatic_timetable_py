@@ -7,32 +7,37 @@ from .utils import merge_time_blocks
 from .chunking import calculate_chunks
 from .data_structs import TimeBlock
 
+# Ceiling on how far ahead a schedule may be planned when nothing else bounds it.
+DEFAULT_MAX_HORIZON_DAYS = 365
 
-def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes=1):
+
+def calculate_horizon(
+    user_tasks, time_blocks, min_horizon_days=14, step_minutes=1, max_horizon_days=DEFAULT_MAX_HORIZON_DAYS
+):
     """
     Calculates the safe planning horizon (maximum available time in minutes)
+
+    The stretch of time the simulation explores is grown on demand: when the first-fit pass runs
+    out of free windows before it has placed everything, the bound was too small, so it is
+    doubled and the pass repeated. A deadline bounds where a task may go, it is never a reason to
+    stretch the plan, so deadlines do not raise the returned horizon.
     """
     if min_horizon_days <= 0:
         raise ValueError(f"min_horizon_days must be greater than 0, got {min_horizon_days}")
+    if max_horizon_days < min_horizon_days:
+        raise ValueError(
+            f"max_horizon_days ({max_horizon_days}) cannot be smaller than min_horizon_days ({min_horizon_days})"
+        )
 
     steps_per_day = 1440 // step_minutes
+    max_bound = max_horizon_days * steps_per_day
 
-    # Calculate a pessimistic safe maximum bound to generate time windows
+    # First guess at how far ahead free windows are needed; grown below whenever it binds.
     base_horizon = sum(task.duration_steps for task in user_tasks)
     max_deadline = max(
         (t.deadline_steps for t in user_tasks if getattr(t, "deadline_steps", None) is not None), default=0
     )
-    pessimistic_max = max(base_horizon * 3 + steps_per_day, min_horizon_days * steps_per_day, max_deadline)
-
-    blocked_intervals = generate_blocked_intervals(time_blocks, pessimistic_max, step_minutes)
-    free_windows = []
-    curr = 0
-    for start, end in blocked_intervals:
-        if start > curr:
-            free_windows.append((curr, start))
-        curr = max(curr, end)
-    if curr < pessimistic_max:
-        free_windows.append((curr, pessimistic_max))
+    initial_bound = max(base_horizon * 3 + steps_per_day, min_horizon_days * steps_per_day, max_deadline)
 
     task_by_id = {t.id: t for t in user_tasks if getattr(t, "id", None) is not None}
     in_degree = {t.id: 0 for t in user_tasks if getattr(t, "id", None) is not None}
@@ -70,57 +75,89 @@ def calculate_horizon(user_tasks, time_blocks, min_horizon_days=14, step_minutes
         if getattr(t, "id", None) is None or t.id not in added:
             sorted_tasks.append(t)
 
-    release_times = {t.id: getattr(t, "start_steps", 0) for t in user_tasks if getattr(t, "id", None) is not None}
-    simulated_horizon = 0
+    def simulate(bound):
+        """
+        Greedily first-fits every task into the free windows below `bound`.
 
-    for task in sorted_tasks:
-        chunks = []
-        if (
-            getattr(task, "min_chunk_duration_steps", None) is not None
-            and task.duration_steps > task.min_chunk_duration_steps
-        ):
-            max_chunks = math.ceil(task.duration_steps / task.min_chunk_duration_steps)
-            remainder = task.duration_steps - (max_chunks - 1) * task.min_chunk_duration_steps
-            for _ in range(max_chunks - 1):
-                chunks.append(task.min_chunk_duration_steps + task.break_duration_steps)
-            chunks.append(remainder + task.break_duration_steps)
-        else:
-            chunks.append(task.duration_steps + task.break_duration_steps)
+        Returns the finish time of the last non-routine task, and whether any chunk failed to be
+        placed for want of a free window rather than for missing its own deadline -- the latter
+        is a task that genuinely does not fit and that the model will drop as well, the former
+        means `bound` itself was the limit.
+        """
+        blocked_intervals = generate_blocked_intervals(time_blocks, bound, step_minutes)
+        free_windows = []
+        curr = 0
+        for start, end in blocked_intervals:
+            if start > curr:
+                free_windows.append((curr, start))
+            curr = max(curr, end)
+        if curr < bound:
+            free_windows.append((curr, bound))
 
-        t_curr = (
-            release_times.get(task.id, getattr(task, "start_steps", 0))
-            if getattr(task, "id", None) is not None
-            else getattr(task, "start_steps", 0)
-        )
-        deadline = task.deadline_steps if getattr(task, "deadline_steps", None) is not None else math.inf
+        release_times = {t.id: getattr(t, "start_steps", 0) for t in user_tasks if getattr(t, "id", None) is not None}
+        simulated_horizon = 0
+        ran_out_of_room = False
 
-        for chunk_size in chunks:
-            placed = False
-            for i, (w_start, w_end) in enumerate(free_windows):
-                start_time = max(w_start, t_curr)
-                if w_end > start_time and (w_end - start_time) >= chunk_size:
-                    if start_time + chunk_size <= deadline:
-                        t_curr = start_time + chunk_size
-                        # Split the window
-                        new_windows = free_windows[:i]
-                        if start_time > w_start:
-                            new_windows.append((w_start, start_time))
-                        if w_end > start_time + chunk_size:
-                            new_windows.append((start_time + chunk_size, w_end))
-                        new_windows.extend(free_windows[i + 1 :])
-                        free_windows = new_windows
-                        placed = True
-                        break
-            if not placed:
-                t_curr += chunk_size
+        for task in sorted_tasks:
+            chunks = []
+            if (
+                getattr(task, "min_chunk_duration_steps", None) is not None
+                and task.duration_steps > task.min_chunk_duration_steps
+            ):
+                max_chunks = math.ceil(task.duration_steps / task.min_chunk_duration_steps)
+                remainder = task.duration_steps - (max_chunks - 1) * task.min_chunk_duration_steps
+                for _ in range(max_chunks - 1):
+                    chunks.append(task.min_chunk_duration_steps + task.break_duration_steps)
+                chunks.append(remainder + task.break_duration_steps)
+            else:
+                chunks.append(task.duration_steps + task.break_duration_steps)
 
-        if not getattr(task, "is_routine", False):
-            simulated_horizon = max(simulated_horizon, t_curr)
-        if getattr(task, "id", None) is not None:
-            for child_id in adj.get(task.id, []):
-                release_times[child_id] = max(release_times.get(child_id, 0), t_curr)
+            t_curr = (
+                release_times.get(task.id, getattr(task, "start_steps", 0))
+                if getattr(task, "id", None) is not None
+                else getattr(task, "start_steps", 0)
+            )
+            deadline = task.deadline_steps if getattr(task, "deadline_steps", None) is not None else math.inf
 
-    return max(simulated_horizon, min_horizon_days * steps_per_day, max_deadline)
+            for chunk_size in chunks:
+                placed = False
+                deadline_limited = False
+                for i, (w_start, w_end) in enumerate(free_windows):
+                    start_time = max(w_start, t_curr)
+                    if w_end > start_time and (w_end - start_time) >= chunk_size:
+                        if start_time + chunk_size <= deadline:
+                            t_curr = start_time + chunk_size
+                            # Split the window
+                            new_windows = free_windows[:i]
+                            if start_time > w_start:
+                                new_windows.append((w_start, start_time))
+                            if w_end > start_time + chunk_size:
+                                new_windows.append((start_time + chunk_size, w_end))
+                            new_windows.extend(free_windows[i + 1 :])
+                            free_windows = new_windows
+                            placed = True
+                            break
+                        deadline_limited = True
+                if not placed:
+                    if not deadline_limited:
+                        ran_out_of_room = True
+                    t_curr += chunk_size
+
+            if not getattr(task, "is_routine", False):
+                simulated_horizon = max(simulated_horizon, t_curr)
+            if getattr(task, "id", None) is not None:
+                for child_id in adj.get(task.id, []):
+                    release_times[child_id] = max(release_times.get(child_id, 0), t_curr)
+
+        return simulated_horizon, ran_out_of_room
+
+    bound = initial_bound
+    simulated_horizon, ran_out_of_room = simulate(bound)
+    while ran_out_of_room and bound < max_bound:
+        bound = min(bound * 2, max_bound)
+        simulated_horizon, ran_out_of_room = simulate(bound)
+
+    return min(max(simulated_horizon, min_horizon_days * steps_per_day), max_bound)
 
 
 def generate_blocked_intervals(time_blocks, horizon, step_minutes=1):
@@ -203,12 +240,20 @@ def calculate_task_weight(task, priority_threshold=5, step_minutes=1):
         return low_tier_base + (days_inverted * deadline_step) + weighted_priority
 
 
-def create_model(user_tasks, time_blocks, min_horizon_days=14, priority_threshold=5, horizon=None, step_minutes=1):
+def create_model(
+    user_tasks,
+    time_blocks,
+    min_horizon_days=14,
+    priority_threshold=5,
+    horizon=None,
+    step_minutes=1,
+    max_horizon_days=DEFAULT_MAX_HORIZON_DAYS,
+):
     model = cp_model.CpModel()
 
     # Data preparation and calculation of constraints
     if horizon is None:
-        horizon = calculate_horizon(user_tasks, time_blocks, min_horizon_days, step_minutes)
+        horizon = calculate_horizon(user_tasks, time_blocks, min_horizon_days, step_minutes, max_horizon_days)
 
     blocked_time_intervals = generate_blocked_intervals(time_blocks, horizon, step_minutes)
 

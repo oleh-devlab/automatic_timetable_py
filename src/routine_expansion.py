@@ -1,6 +1,7 @@
-from datetime import timedelta, datetime
+from datetime import datetime
 import math
 from .data_structs import Task, TimeBlock
+from .utils import iter_active_dates
 
 
 def expand_routines(routines, now, horizon_minutes, step_minutes=1):
@@ -23,18 +24,18 @@ def expand_routines(routines, now, horizon_minutes, step_minutes=1):
     extra_blocks = []
     routine_info = []
 
-    steps_per_day = 1440 // step_minutes
-    horizon_days = horizon_minutes // steps_per_day + 1
-
     for routine in routines:
-        for day_offset in range(horizon_days + 1):
-            current_date = (now + timedelta(days=day_offset)).date()
+        # Check which days this routine applies to
+        weekdays = None
+        if routine.repeat == "weekly":
+            if not routine.weekdays:
+                continue  # a weekly routine without weekdays never applies
+            weekdays = routine.weekdays
 
-            # Check if routine applies to this day
-            if routine.repeat == "weekly":
-                if routine.weekdays is None or current_date.weekday() not in routine.weekdays:
-                    continue
-
+        # Start a day early: a fixed routine that began yesterday may still be running at `now`
+        for current_date in iter_active_dates(
+            now, horizon_minutes, step_minutes, weekdays=weekdays, start_day_offset=-1
+        ):
             # Check if routine should be skipped
             if getattr(routine, "resume_after", None) and current_date <= routine.resume_after:
                 continue
