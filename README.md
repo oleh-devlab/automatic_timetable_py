@@ -49,6 +49,32 @@ There are two types of routines:
 - **Fixed-time routines**: Tied to a specific `time` (e.g., training every day at 07:00). These act like blocked intervals but represent tasks.
 - **Flexible routines**: These behave like normal tasks with a `duration`, `priority`, and an optional `deadline_time` (e.g., study words before 18:00). The solver will find the optimal time for them within each day. Flexible routines do not support Pomodoro chunking (they are scheduled as a single block), but they do support `break_duration`.
 
+### 5. Solver Settings
+
+`Scheduler.solve()` exposes the CP-SAT budget through `timeouts`
+(`{"packer": ..., "gravity": ...}`, both `0.5` s by default), `num_search_workers`
+(default `1`) and `max_memory_in_mb` (default `256`).
+
+**Use `num_search_workers=2` or more whenever the input may be oversubscribed.**
+This is a matter of getting an answer at all, not of speed. Stage 1 is driven by its
+objective, and with a single worker CP-SAT keeps diving towards high-weight
+assignments, hits conflicts and restarts, without ever settling for a cheap but valid
+one — even though "schedule nothing" is always a feasible solution. Extra workers add
+strategies aimed at reaching a feasible solution quickly, and they land one immediately.
+
+Measured on 24 four-hour chunked tasks sharing a deadline 5 days out, against a
+calendar with sleep, lunch and evening blocked (3 runs each):
+
+| packer timeout | 1 worker | 2 workers | 4 workers | 8 workers |
+|---|---|---|---|---|
+| 0.5 s | 0/3 | 3/3 | 3/3 | 1/3 |
+| 2.0 s | 0/3 | 3/3 | 3/3 | 3/3 |
+
+Raising the timeout does not rescue a single worker; adding a second one does. When the
+Packer stage does fail this way, `ScheduleResult.packer_status` is `UNKNOWN`,
+`is_successful` is `False`, and every list on the result is empty — including
+`skipped_tasks`, so check the status rather than inferring from an empty schedule.
+
 ## Project Structure
 
 ```text

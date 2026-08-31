@@ -164,6 +164,27 @@ class Scheduler:
         num_search_workers: int = 1,
         max_memory_in_mb: int = 256,
     ) -> ScheduleResult:
+        """
+        Builds and solves the schedule in two stages (Packer, then Gravity).
+
+        Args:
+            start_time: Reference "now". Defaults to the current minute.
+            timeouts: CP-SAT budget per stage, {"packer": seconds, "gravity": seconds}.
+                Defaults to 0.5 s each.
+            min_horizon_days: Overrides the instance setting for this call.
+            priority_threshold: Overrides the instance setting for this call.
+            num_search_workers: CP-SAT workers. Use 2 or more when the input may be
+                oversubscribed: Stage 1 follows its objective, and a single worker keeps
+                diving towards high-weight assignments instead of settling for a cheap but
+                valid one, so it can return UNKNOWN even though "schedule nothing" is always
+                feasible. A longer timeout does not fix this; a second worker does.
+            max_memory_in_mb: CP-SAT memory limit.
+
+        Returns:
+            ScheduleResult. When Stage 1 finds nothing, is_successful is False and every
+            list is empty — skipped_tasks included — so read packer_status rather than
+            inferring failure from an empty schedule.
+        """
         now = start_time or datetime.now().replace(second=0, microsecond=0)
 
         timeouts = timeouts or {"packer": 0.5, "gravity": 0.5}
@@ -350,7 +371,9 @@ class Scheduler:
                     if getattr(task, "is_routine", False):
                         routine_id = getattr(task, "routine_id", None)
                         result.scheduled_routines.append(
-                            ScheduledRoutine(task, start_time_str, end_time_str, routine_type="flexible", routine_id=routine_id)
+                            ScheduledRoutine(
+                                task, start_time_str, end_time_str, routine_type="flexible", routine_id=routine_id
+                            )
                         )
                     else:
                         scheduled_task = ScheduledTask(task, start_time_str, end_time_str)
