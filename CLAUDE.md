@@ -22,6 +22,14 @@ CI (`.github/workflows/`) runs tests + `ruff check` on Python 3.14 for every pus
 workflow auto-formats with Black and opens a *separate* PR against the pushed branch if formatting
 drifts, so run `black .` before pushing to avoid the noise.
 
+## Design notes
+
+`docs/` holds working notes rather than user documentation: measured operating limits and how
+they were established (`docs/limits.md`), what constrains each hand-picked constant and what
+replacing it would cost (`docs/magic-numbers.md`), the restructuring plan for `create_model()`
+and `Scheduler.solve()` (`docs/refactoring.md`), and two unfixed bugs (`docs/known-defects.md`).
+Consult them before changing a weight, a tier base or the shape of the model.
+
 ## Architecture
 
 `src/` is a library (public surface re-exported in `src/__init__.py`); `main.py` is just one consumer
