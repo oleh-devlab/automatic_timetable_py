@@ -22,6 +22,14 @@ CI (`.github/workflows/`) runs tests + `ruff check` on Python 3.14 for every pus
 workflow auto-formats with Black and opens a *separate* PR against the pushed branch if formatting
 drifts, so run `black .` before pushing to avoid the noise.
 
+## Design notes
+
+`docs/` holds working notes rather than user documentation: measured operating limits and how
+they were established (`docs/limits.md`), what constrains each hand-picked constant and what
+replacing it would cost (`docs/magic-numbers.md`), the restructuring plan for `create_model()`
+and `Scheduler.solve()` (`docs/refactoring.md`), and two unfixed bugs (`docs/known-defects.md`).
+Consult them before changing a weight, a tier base or the shape of the model.
+
 ## Architecture
 
 `src/` is a library (public surface re-exported in `src/__init__.py`); `main.py` is just one consumer
@@ -64,8 +72,12 @@ consistently — the model has no notion of minutes.
 
 ### Two-stage solve (Packer → Gravity)
 
-`create_model()` sets the Stage 1 objective (`maximize(sum(presence_terms))`) and attaches the Stage 2
-terms as an ad-hoc `model.time_bonus_terms` attribute on the `CpModel`. `Scheduler.solve()` then:
+`create_model()` returns a `StagedModel` — the `CpModel` with Stage 1's objective already set
+(`maximize(sum(presence_terms))`), plus the `horizon` and the Stage 2 `gravity_terms` that
+`apply_gravity_objective()` switches to later. Stage 2's *variables* are built during construction,
+not deferred: they are definitions over `start_var`/`end_var`/`presence_var` whose domains never
+bind, so Stage 1 reaches the same optimum either way. Keeping them there is provisional — dropping
+them is faster to optimality but more seed-sensitive (see `docs/refactoring.md`). `Scheduler.solve()` then:
 
 - **Stage 1 (Packer)** — decides *which* tasks fit, using `calculate_task_weight()`:
   `high_tier_base = 60_000_000` for `priority >= priority_threshold` vs `low_tier_base = 60_000` below
@@ -168,6 +180,10 @@ reach the client as `ScheduledRoutine` built from `routine_info`, with exact cal
   `daily` bool plus `weekdays`; routines keep their own `repeat: "daily" | "weekly"`. `weekdays` is
   required for `"weekly"` and rejected for anything else, in both. Keep the enum on the input side
   only — see "Weekly time blocks" for why the step layer wants a bool.
+- Experiment scripts do not belong in the repository. Anything written to measure or probe
+  behaviour goes outside it; when such a script must live beside `src/` to import it, name it
+  `scratch_*.py` (gitignored) and stage commits by path rather than with `git add -A`. A scratch
+  file was committed exactly once, because its cleanup line sat after a command that timed out.
 - The parser is strict: unknown fields (at the top level or inside any task, block or routine) and
   missing required ones raise `ValueError` naming the element, e.g. `time_blocks[0]`. Adding a field
   to a dataclass means adding it to the matching `_*_FIELDS` set in `data_read.py`, or files using it

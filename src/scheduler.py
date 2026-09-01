@@ -300,7 +300,7 @@ class Scheduler:
         export_blocks = processed_blocks + weekly_blocks
 
         # Create model
-        model = create_model(
+        staged = create_model(
             combined_tasks,
             combined_blocks,
             min_horizon_days=actual_horizon_days,
@@ -309,6 +309,7 @@ class Scheduler:
             step_minutes=self.step_minutes,
             max_horizon_days=actual_max_horizon_days,
         )
+        model = staged.model
 
         # Stage 1: Packer
         solver = cp_model.CpSolver()
@@ -350,8 +351,8 @@ class Scheduler:
                         model.add(chunk["presence_var"] == safe_solution[chunk["presence_var"]])
 
             # 2. Set new objective for time placement
-            if hasattr(model, "time_bonus_terms"):
-                model.maximize(sum(model.time_bonus_terms))
+            if staged.gravity_terms:
+                staged.apply_gravity_objective()
 
                 # Re-solve with Stage 2 timeout
                 solver.parameters.max_time_in_seconds = gravity_timeout

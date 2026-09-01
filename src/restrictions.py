@@ -1,6 +1,7 @@
 import math
 import itertools
 import heapq
+from dataclasses import dataclass, field
 from ortools.sat.python import cp_model
 
 from .utils import merge_time_blocks
@@ -240,6 +241,33 @@ def calculate_task_weight(task, priority_threshold=5, step_minutes=1):
         return low_tier_base + (days_inverted * deadline_step) + weighted_priority
 
 
+@dataclass
+class StagedModel:
+    """
+    A built CP-SAT model together with what Stage 2 needs to take over from Stage 1.
+
+    Stage 1's objective is already set on `model`; Stage 2's is applied later, once the
+    presence variables have been pinned to the Stage 1 answer.
+
+    The Stage 2 *variables* are built during model construction rather than deferred with
+    the objective. They cannot change what Stage 1 decides -- each is a definition over
+    `start_var`/`end_var`/`presence_var` whose domain never binds -- and a seed sweep
+    confirms Stage 1 reaches the same optimum with or without them. Leaving them here is a
+    provisional choice, not a proven one: dropping them from Stage 1 proves optimality
+    somewhat faster and shows no systematic difference in the incumbent reached within a
+    fixed budget, but makes the outcome noticeably more sensitive to the solver's seed.
+    See docs/refactoring.md for the measurements.
+    """
+
+    model: cp_model.CpModel
+    horizon: int
+    gravity_terms: list = field(default_factory=list)
+
+    def apply_gravity_objective(self):
+        """Switches the model from the Packer objective to the Gravity one."""
+        self.model.maximize(sum(self.gravity_terms))
+
+
 def create_model(
     user_tasks,
     time_blocks,
@@ -415,11 +443,8 @@ def create_model(
             # Rule 2: If B is scheduled, B starts after A ends
             model.add(task_b.start_var >= task_a.end_var).only_enforce_if(task_b.presence_var)
 
-    # Stage 1: Packer objective (only fixed weight)
-    presence_terms = []
-
-    # Stage 2: Gravity objective (time bonuses)
-    time_bonus_terms = []
+    presence_terms = []  # Stage 1 (Packer): which tasks are worth scheduling
+    gravity_terms = []  # Stage 2 (Gravity): where the scheduled ones sit
 
     for i, task in enumerate(user_tasks):
         fixed_weight = calculate_task_weight(task, priority_threshold, step_minutes)
@@ -446,18 +471,14 @@ def create_model(
         task_gravity = model.new_int_var(0, horizon, f"task_gravity_{i}")
         model.add(task_gravity == horizon - task.start_var).only_enforce_if(task.presence_var)
         model.add(task_gravity == 0).only_enforce_if(task.presence_var.negated())
-        time_bonus_terms.append(task_gravity * (gravity_multiplier * 1000))
+        gravity_terms.append(task_gravity * (gravity_multiplier * 1000))
 
         # 2. Force chunks to stick together (Penalty for GAPS)
         task_gaps = model.new_int_var(0, horizon, f"task_gaps_{i}")
         model.add(task_gaps == (task.end_var - task.start_var) - task.duration_steps).only_enforce_if(task.presence_var)
         model.add(task_gaps == 0).only_enforce_if(task.presence_var.negated())
-        time_bonus_terms.append(task_gaps * (-gravity_multiplier * 10))
+        gravity_terms.append(task_gaps * (-gravity_multiplier * 10))
 
-    # Set objective for Stage 1
     model.maximize(sum(presence_terms))
 
-    # Attach Stage 2 terms to the model for scheduler.py
-    model.time_bonus_terms = time_bonus_terms
-
-    return model
+    return StagedModel(model=model, horizon=horizon, gravity_terms=gravity_terms)

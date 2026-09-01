@@ -38,7 +38,8 @@ class BaseSolverTest(unittest.TestCase):
                     tb.start = math.floor(tb.start / self.step_minutes)
                     tb.end = math.ceil(tb.end / self.step_minutes)
                     tb._scaled = True
-        model = create_model(tasks, time_blocks, priority_threshold=priority_threshold, step_minutes=self.step_minutes)
+        staged = create_model(tasks, time_blocks, priority_threshold=priority_threshold, step_minutes=self.step_minutes)
+        model = staged.model
         solver = cp_model.CpSolver()
 
         # Test infrastructure limits
@@ -60,8 +61,8 @@ class BaseSolverTest(unittest.TestCase):
                     val = solver.value(chunk["presence_var"])
                     model.add(chunk["presence_var"] == val)
 
-        if hasattr(model, "time_bonus_terms"):
-            model.maximize(sum(model.time_bonus_terms))
+        if staged.gravity_terms:
+            staged.apply_gravity_objective()
             status = solver.solve(model)
             self.assertIn(
                 status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 2"
