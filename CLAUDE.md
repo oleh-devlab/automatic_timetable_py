@@ -180,6 +180,10 @@ reach the client as `ScheduledRoutine` built from `routine_info`, with exact cal
   `daily` bool plus `weekdays`; routines keep their own `repeat: "daily" | "weekly"`. `weekdays` is
   required for `"weekly"` and rejected for anything else, in both. Keep the enum on the input side
   only — see "Weekly time blocks" for why the step layer wants a bool.
+- Experiment scripts do not belong in the repository. Anything written to measure or probe
+  behaviour goes outside it; when such a script must live beside `src/` to import it, name it
+  `scratch_*.py` (gitignored) and stage commits by path rather than with `git add -A`. A scratch
+  file was committed exactly once, because its cleanup line sat after a command that timed out.
 - The parser is strict: unknown fields (at the top level or inside any task, block or routine) and
   missing required ones raise `ValueError` naming the element, e.g. `time_blocks[0]`. Adding a field
   to a dataclass means adding it to the matching `_*_FIELDS` set in `data_read.py`, or files using it

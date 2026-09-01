@@ -1,6 +1,11 @@
 # --- This project
 data.json
 
+# Throwaway experiment scripts. Measurements and one-off probes belong outside the repo,
+# but a script that has to import src/ must sit next to it, so name those scratch_*.py.
+# Then an absent-minded `git add -A` cannot sweep one into a commit.
+/scratch_*.py
+
 # --- Python
 # Byte-compiled / optimized / DLL files
 __pycache__/
