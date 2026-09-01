@@ -55,7 +55,7 @@ class TestRoutinesSolver(BaseSolverTest):
         user_tasks.extend(extra_tasks)
         time_blocks.extend(extra_blocks)
 
-        model = create_model(user_tasks, time_blocks, horizon=horizon)
+        model = create_model(user_tasks, time_blocks, horizon=horizon).model
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = 5.0
         solver.parameters.num_search_workers = 1
