@@ -76,8 +76,8 @@ consistently — the model has no notion of minutes.
 (`maximize(sum(presence_terms))`), plus the `horizon` and the Stage 2 `gravity_terms` that
 `apply_gravity_objective()` switches to later. Stage 2's *variables* are built during construction,
 not deferred: they are definitions over `start_var`/`end_var`/`presence_var` whose domains never
-bind, so Stage 1 reaches the same optimum either way, and removing them measurably worsens the
-incumbent Stage 1 reaches within a fixed budget (see `docs/refactoring.md`). `Scheduler.solve()` then:
+bind, so Stage 1 reaches the same optimum either way. Keeping them there is provisional — dropping
+them is faster to optimality but more seed-sensitive (see `docs/refactoring.md`). `Scheduler.solve()` then:
 
 - **Stage 1 (Packer)** — decides *which* tasks fit, using `calculate_task_weight()`:
   `high_tier_base = 60_000_000` for `priority >= priority_threshold` vs `low_tier_base = 60_000` below

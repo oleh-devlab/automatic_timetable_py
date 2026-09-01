@@ -251,11 +251,12 @@ class StagedModel:
 
     The Stage 2 *variables* are built during model construction rather than deferred with
     the objective. They cannot change what Stage 1 decides -- each is a definition over
-    `start_var`/`end_var`/`presence_var` whose domain never binds, and Stage 1 reaches the
-    same optimum with or without them. Removing them from Stage 1 was measured: it makes
-    proving optimality faster but the incumbent reached within a fixed budget consistently
-    worse, and a fixed budget is the normal case (`Scheduler.solve()` gives the Packer 0.5 s
-    by default). See docs/refactoring.md.
+    `start_var`/`end_var`/`presence_var` whose domain never binds -- and a seed sweep
+    confirms Stage 1 reaches the same optimum with or without them. Leaving them here is a
+    provisional choice, not a proven one: dropping them from Stage 1 proves optimality
+    somewhat faster and shows no systematic difference in the incumbent reached within a
+    fixed budget, but makes the outcome noticeably more sensitive to the solver's seed.
+    See docs/refactoring.md for the measurements.
     """
 
     model: cp_model.CpModel

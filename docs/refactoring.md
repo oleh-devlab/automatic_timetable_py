@@ -107,6 +107,51 @@ Two functions over the same context make the stage boundary — the central desi
 of this solver — visible in the code rather than in a comment. This is the step that pays
 back most per line touched, and it does not go near variable creation.
 
+### Whether the Stage 2 variables should move too — measured, unresolved
+
+Stage 1 carries two integer variables and four constraints per task that its own objective
+never mentions (`task_gravity`, `task_gaps`). Removing them from `create_model()` looks like
+free savings; it is not that simple.
+
+A first pass compared single runs and concluded the smaller model was consistently worse.
+**That was wrong** — CP-SAT is deterministic for a fixed model, parameters and seed, so
+repeating a run is not a sample. Re-measured with `random_seed` varied over the same input,
+144 runs, 4 workers:
+
+*Fixed 3 s budget, objective reached, 10 seeds per cell — median of the variant without the
+gravity variables against the median with them:*
+
+| instance | delta of medians | seed spread, with | seed spread, without |
+|---|---|---|---|
+| 30d/8t | +0.00% | 1.07% | 4.29% |
+| 45d/10t | +1.13% | 1.51% | 4.10% |
+| 60d/8t | −2.05% | 0.27% | 1.67% |
+| 90d/12t | +0.57% | 0.76% | 0.76% |
+
+Better on 3 of 4 instances, worse on 1, and on three of them the seed-to-seed spread
+*within* a variant is larger than the difference *between* the variants. So there is no
+systematic quality difference at a fixed budget — the earlier −2.7% was one unlucky seed.
+
+*20 s cap, proving optimality, 8 seeds per cell:*
+
+| instance | with gravity vars | without |
+|---|---|---|
+| 10d/6t | 8/8 OPTIMAL, median 0.23 s | 8/8 OPTIMAL, median 0.21 s |
+| 14d/8t | 8/8 OPTIMAL, median 1.83 s (max 4.79) | 8/8 OPTIMAL, median 1.40 s (max 3.54) |
+| 14d/12t | 0/8 | 0/8 |
+| 21d/10t | 0/8 | 0/8 |
+
+**The optimum is identical wherever both prove it** (7 569 145 and 10 548 367, all 16 seeds
+each), as it must be: those variables are definitions whose domains never bind.
+
+What the data supports: dropping them is modestly faster to optimality, neutral on
+anytime quality, and **more seed-sensitive** — the spread widens on three of four
+instances. Higher variance means a less predictable schedule for the same input, which is
+the one thing that argues for leaving them where they are.
+
+Not resolved. The `StagedModel` refactor deliberately does not depend on the answer: it
+moves only the objective, so the variables can move later without touching the callers.
+
 ## Step 4 — phase structure
 
 The proposed "each constraint is a function taking all data and returning modified data"
