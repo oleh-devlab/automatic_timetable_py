@@ -342,18 +342,9 @@ class Scheduler:
                         safe_solution[chunk["size_var"]] = solver.value(chunk["size_var"])
 
             # Stage 2: Gravity
-            # 1. Lock the presence variables based on cached Stage 1 solution
-            for task in combined_tasks:
-                if hasattr(task, "presence_var"):
-                    model.add(task.presence_var == safe_solution[task.presence_var])
-                if getattr(task, "chunks", None):
-                    for chunk in task.chunks:
-                        model.add(chunk["presence_var"] == safe_solution[chunk["presence_var"]])
-
-            # 2. Set new objective for time placement
-            if staged.gravity_terms:
-                staged.apply_gravity_objective()
-
+            # Pins presence to the Stage 1 answer and sets the time-placement objective,
+            # weighted by the chunk sizes Stage 1 settled on.
+            if staged.apply_gravity_objective(solver):
                 # Re-solve with Stage 2 timeout
                 solver.parameters.max_time_in_seconds = gravity_timeout
                 gravity_status = solver.solve(model)

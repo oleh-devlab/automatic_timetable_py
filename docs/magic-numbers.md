@@ -13,9 +13,9 @@ priority_step         = 1
 low_tier_base         = 60_000
 high_tier_base        = low_tier_base * 1000
 
-gravity_multiplier    = task.priority**3   # create_model(), Stage 2 terms
-task_gravity * (gravity_multiplier * 1000)
-task_gaps    * (-gravity_multiplier * 10)
+gravity_multiplier    = task.priority**3   # StagedModel.apply_gravity_objective()
+GRAVITY_PULL          = 100    # per step earlier, per step of chunk mass
+GRAVITY_GAP_PENALTY   = 1      # per step of gap, per step of task duration
 ```
 
 ## `high_tier_base = low_tier_base * 1000` — worth deriving
@@ -142,15 +142,18 @@ literal. A fixed generous value (say 1024) pays for itself in tier dominance —
 **Current exposure** is measured in [`limits.md`](limits.md#2-deadline-dominance-inside-a-tier):
 the priority span consumes 4–5 of the 15, the chunk penalty consumes 0 after the refund.
 
-## Stage 2: `priority**3`, `1000`, `10` — name them, do not derive them
+## Stage 2: `priority**3`, `GRAVITY_PULL`, `GRAVITY_GAP_PENALTY` — named, not derived
 
 Safest of the lot to experiment with: Stage 2 runs with presence pinned, so a mistake can
 only produce an ugly ordering, never a dropped task.
 
 Two things worth writing down rather than changing:
 
-- **`1000 : 10` is a 100:1 ratio** meaning "one step earlier is worth 100 steps of gap".
-  Pure taste; there is no value to derive it from.
+- **`GRAVITY_PULL : GRAVITY_GAP_PENALTY` is 100:1**, and only the ratio carries meaning:
+  one step of work moved earlier is worth a hundred steps of gap. Pure taste; there is no
+  value to derive it from. The absolute scale only spends int64 headroom (see
+  [`limits.md`](limits.md#5-stage-2-coefficient-growth)), so the pair is the smallest
+  integers that hold the ratio. It used to be spelled `1000 : 10`.
 - **`priority**3` cancels out of the within-task trade-off.** Both terms are multiplied by
   it, so for a single task the choice between starting earlier and opening a gap does not
   depend on priority at all. Priority only decides competition *between* tasks. This is not

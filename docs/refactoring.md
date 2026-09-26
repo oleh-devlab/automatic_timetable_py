@@ -99,19 +99,26 @@ Also fixes a real crash — see [`known-defects.md`](known-defects.md#1).
 
 ## Step 3 — split the two objectives
 
-Today one loop (`424-455`) builds both objectives and Stage 2's terms leave through
-`model.time_bonus_terms`, an attribute stuck onto the `CpModel`. That is the only channel
-between `create_model()` and `Scheduler.solve()`, and it is invisible.
+*Done:* `create_model()` returns a `StagedModel`, and Stage 2's objective is built by
+`StagedModel.apply_gravity_objective(solver)` from the Stage 1 solution. It has to be — the
+per-chunk pull is weighted by the chunk sizes Stage 1 settles on.
+
+Before this, one loop (`424-455`) built both objectives and Stage 2's terms left through
+`model.time_bonus_terms`, an attribute stuck onto the `CpModel`. That was the only channel
+between `create_model()` and `Scheduler.solve()`, and it was invisible.
 
 Two functions over the same context make the stage boundary — the central design decision
 of this solver — visible in the code rather than in a comment. This is the step that pays
 back most per line touched, and it does not go near variable creation.
 
-### Whether the Stage 2 variables should move too — measured, unresolved
+### Whether the old Stage 2 variables should stay in Stage 1 — measured, unresolved
 
 Stage 1 carries two integer variables and four constraints per task that its own objective
-never mentions (`task_gravity`, `task_gaps`). Removing them from `create_model()` looks like
-free savings; it is not that simple.
+never mentions (`task_gravity`, `task_gaps`). Since Stage 2 became a per-chunk pull built from
+the Stage 1 solution, *no* objective reads them: Stage 2 is written directly over
+`start_var`/`end_var`. So this is now purely a Stage 1 question, and whichever way it is
+answered Stage 2 does not change. Removing them from `create_model()` looks like free
+savings; it is not that simple.
 
 A first pass compared single runs and concluded the smaller model was consistently worse.
 **That was wrong** — CP-SAT is deterministic for a fixed model, parameters and seed, so
@@ -149,8 +156,9 @@ anytime quality, and **more seed-sensitive** — the spread widens on three of f
 instances. Higher variance means a less predictable schedule for the same input, which is
 the one thing that argues for leaving them where they are.
 
-Not resolved. The `StagedModel` refactor deliberately does not depend on the answer: it
-moves only the objective, so the variables can move later without touching the callers.
+Not resolved, so they stay. The measurements above were taken with them in place, and so
+was every Stage 1 result since; deleting them is a two-line change in `create_model()` that
+touches nothing else.
 
 ## Step 4 — phase structure
 

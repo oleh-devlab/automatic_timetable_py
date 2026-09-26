@@ -12,7 +12,7 @@ Summary:
 | in-tier deadline dominance | priority span inside one tier ≥ 15 | none | only by exceeding the documented 0–10 range |
 | `low_tier_base` floor | a task's chunk penalty reaches its whole weight | task silently dropped | no (would need ~60 000 excess chunks) |
 | deadline horizon | deadline more than 10 years out | none, and correctly so | no |
-| Stage 2 coefficients | `priority**3 * 1000 * horizon * n_tasks` exceeds int64 | `MODEL_INVALID` on Stage 2; **the schedule survives** | no (needs priority ≈ 1000) |
+| Stage 2 coefficients | `priority**3 * GRAVITY_PULL * Σ duration_steps * horizon` exceeds int64 | `MODEL_INVALID` on Stage 2; **the schedule survives** | no (needs priority in the hundreds) |
 | Packer returns `UNKNOWN` | oversubscribed input with `num_search_workers=1` | `packer_status == "UNKNOWN"`, every list empty | yes — use 2+ workers |
 
 ## 1. Tier dominance
@@ -130,18 +130,33 @@ other and from having no deadline at all. Intentional, and locked by
 
 ## 5. Stage 2 coefficient growth
 
-Stage 2 weights each task by `priority**3`, then by 1000 (pull left) and 10 (close gaps).
-The objective sum grows as `priority**3 * 1000 * horizon_steps * n_tasks`, and CP-SAT
-requires it to fit in int64.
+Stage 2 pulls every present chunk left at `priority**3 * GRAVITY_PULL * mass` per step, and
+chunk masses sum to the task's duration. So the objective no longer grows with the number of
+tasks but with the **total work** in steps:
+`priority**3 * GRAVITY_PULL * Σ duration_steps * horizon_steps`, which CP-SAT requires to fit
+in int64. The gap penalty adds another 1% (`GRAVITY_GAP_PENALTY` is a hundredth of the pull).
 
-Measured, 20 tasks, 365-day horizon:
+That is the price of the per-chunk pull: the weights have to be proportional to work, or a
+task's importance starts depending on how it was cut up. It is why `GRAVITY_PULL` and
+`GRAVITY_GAP_PENALTY` are 100 and 1 rather than 1000 and 10 — same ratio, a tenth of the
+growth, and 100:1 is the smallest integer pair that keeps it.
+
+Measured, 20 tasks of 8 h each (chunked 30 min – 2 h), 365-day horizon:
 
 ```
-prio    10, step 1: coeff 1e6   worst sum 1.05e13   stage1 OPTIMAL  stage2 OPTIMAL
-prio   100, step 1: coeff 1e9   worst sum 1.05e16   stage1 OPTIMAL  stage2 OPTIMAL
-prio  1000, step 1: coeff 1e12  worst sum 1.05e19   stage1 OPTIMAL  stage2 MODEL_INVALID
-prio  1000, step 5: coeff 1e12  worst sum 2.10e18   stage1 OPTIMAL  stage2 OPTIMAL
+prio    10, step 1: worst sum 5.1e14   stage1 FEASIBLE  stage2 FEASIBLE
+prio    10, step 5: worst sum 2.0e13   stage1 FEASIBLE  stage2 FEASIBLE
+prio   100, step 1: worst sum 5.1e17   stage1 FEASIBLE  stage2 FEASIBLE
+prio   100, step 5: worst sum 2.0e16   stage1 FEASIBLE  stage2 FEASIBLE
+prio  1000, step 1: worst sum 5.1e20   stage1 FEASIBLE  stage2 MODEL_INVALID
+prio  1000, step 5: worst sum 2.0e19   stage1 FEASIBLE  stage2 MODEL_INVALID
 ```
+
+Before the per-chunk pull (one term per task at `priority**3 * 1000`, gap at `* 10`), the
+same sums were `1.05e13 / 1.05e16 / 1.05e19` at step 1, and priority 1000 still fit at step 5
+(`2.10e18`). It no longer does: the threshold moved from roughly priority 1000 down to the
+high hundreds at step 5 and a few hundred at step 1. Longer tasks move it further, since the
+sum is proportional to their length in steps.
 
 **Stage 1 stays `OPTIMAL` in every case, and the schedule survives.** That is not luck:
 `safe_solution` is filled from Stage 1 and Stage 2's values are copied back only on
@@ -153,11 +168,11 @@ due to the underlying Two-Stage architecture". The sentence is true, but the rea
 worth stating plainly: it is safe because a Stage 2 failure is *survivable by design*, not
 because Stage 2 cannot fail.
 
-`step_minutes=5` moves the threshold up fivefold, since the horizon in steps is five times
-smaller.
+`step_minutes=5` shrinks both the horizon and every duration fivefold, so the sum drops
+twenty-fivefold.
 
-**Verdict: livable.** Under a 0–10 range the largest multiplier is 1000 and the margin is
-eight orders of magnitude.
+**Verdict: livable.** Under a 0–10 range the largest multiplier is 1000 and the worst sum
+above sits more than four orders of magnitude below int64.
 
 ## 6. Packer `UNKNOWN` with a single worker
 

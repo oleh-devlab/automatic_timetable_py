@@ -52,17 +52,7 @@ class BaseSolverTest(unittest.TestCase):
         )
 
         # Stage 2: Gravity
-        for task in tasks:
-            if hasattr(task, "presence_var"):
-                val = solver.value(task.presence_var)
-                model.add(task.presence_var == val)
-            if getattr(task, "chunks", None):
-                for chunk in task.chunks:
-                    val = solver.value(chunk["presence_var"])
-                    model.add(chunk["presence_var"] == val)
-
-        if staged.gravity_terms:
-            staged.apply_gravity_objective()
+        if staged.apply_gravity_objective(solver):
             status = solver.solve(model)
             self.assertIn(
                 status, (cp_model.OPTIMAL, cp_model.FEASIBLE), "Solver failed to find a feasible solution in Stage 2"

@@ -73,11 +73,16 @@ consistently — the model has no notion of minutes.
 ### Two-stage solve (Packer → Gravity)
 
 `create_model()` returns a `StagedModel` — the `CpModel` with Stage 1's objective already set
-(`maximize(sum(presence_terms))`), plus the `horizon` and the Stage 2 `gravity_terms` that
-`apply_gravity_objective()` switches to later. Stage 2's *variables* are built during construction,
-not deferred: they are definitions over `start_var`/`end_var`/`presence_var` whose domains never
-bind, so Stage 1 reaches the same optimum either way. Keeping them there is provisional — dropping
-them is faster to optimality but more seed-sensitive (see `docs/refactoring.md`). `Scheduler.solve()` then:
+(`maximize(sum(presence_terms))`), plus the `horizon` and the task list. Stage 2's objective is **not**
+built there: its weights are the chunk sizes Stage 1 settles on, so `apply_gravity_objective(solver)`
+builds it from the Stage 1 solution, and pins presence in the same step. It needs no variables of its
+own — with presence pinned, `horizon - start_var` is already a linear expression.
+
+`create_model()` still builds two per-task variables that neither objective reads (`task_gravity`,
+`task_gaps`). They are what Stage 2 used to be built from, and they stay only because Stage 1 was
+measured with them in place: dropping them is faster to optimality but more seed-sensitive (see
+`docs/refactoring.md`). That is an open Stage 1 question; Stage 2 no longer depends on its answer.
+`Scheduler.solve()` then:
 
 - **Stage 1 (Packer)** — decides *which* tasks fit, using `calculate_task_weight()`:
   `high_tier_base = 60_000_000` for `priority >= priority_threshold` vs `low_tier_base = 60_000` below
@@ -91,10 +96,29 @@ them is faster to optimality but more seed-sensitive (see `docs/refactoring.md`)
   on splits the calendar forced rather than on the task simply being long. Everything below one day of
   deadline (`15`) shares one scale — priority *and* the surviving chunk penalty — so that budget is
   what keeps deadlines dominant inside a tier.
-- **Stage 2 (Gravity)** — presence variables are pinned to the Stage 1 values, then the objective is
-  replaced with the time bonuses: `priority**3 * 1000` per step pulled earlier, minus
-  `priority**3 * 10` per step of gap between a task's first and last chunk. Priority 0 disables
-  gravity entirely (floating filler tasks).
+- **Stage 2 (Gravity)** — `apply_gravity_objective()` pins presence to the Stage 1 values and replaces
+  the objective with the time bonuses: **every present chunk** is pulled left at
+  `priority**3 * GRAVITY_PULL * mass` per step, where `mass` is that chunk's `size_var` *as of Stage 1*,
+  minus `priority**3 * GRAVITY_GAP_PENALTY * duration_steps` per step of gap between a task's first and
+  last chunk. Priority 0 disables gravity entirely (floating filler tasks).
+  Pinning and switching the objective are one call on purpose: the pull terms are bare
+  `horizon - start_var` expressions, meaningful only while presence is pinned — a chunk free to drop
+  out would have a free start, and its pull would be collected for nothing.
+  Weighing by mass keeps the pull per-chunk without a product of two variables: `size_var` is still
+  free in Stage 2, but freezing its Stage 1 value turns the weight into a constant, and a stale weight
+  can only skew a preference — never a constraint. Chunk sizes sum to `duration_steps` by
+  construction, so a task's total pull is `priority**3 * GRAVITY_PULL * duration_steps` however many
+  pieces the calendar forced it into. The placement order this produces is decided by weight over
+  duration — `priority**3`, with the duration cancelling out — so priority alone orders tasks. Do not
+  "normalise" the weights by dividing by the chunk count: dividing by the *static* `max_chunks` makes a
+  task's importance depend on `min_chunk_duration`, and measurably schedules worse than no fix at all.
+  Only the `GRAVITY_PULL : GRAVITY_GAP_PENALTY` ratio (100:1) matters; the absolute scale only spends
+  int64 headroom (`docs/limits.md`), so it is as small as the ratio allows.
+  Pulling `task.start_var` alone (which aliases the first chunk) left every later chunk with no pull,
+  and the gap penalty is far too weak to stand in for one: a priority 2 task could profitably wedge
+  itself between the chunks of a priority 5 one. Raising the gap penalty does not fix that — it enters
+  the start's coefficient with the opposite sign to the pull, so pushing it up cancels the leftward
+  pull instead of strengthening it.
 
 Solutions are read from a `safe_solution` dict cached after Stage 1, **not** from `solver.value()` at
 the end — Stage 2 may time out or fail, in which case the Stage 1 placement survives. Preserve that

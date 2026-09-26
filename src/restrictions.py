@@ -11,6 +11,13 @@ from .data_structs import TimeBlock
 # Ceiling on how far ahead a schedule may be planned when nothing else bounds it.
 DEFAULT_MAX_HORIZON_DAYS = 365
 
+# Stage 2 coefficients, per step and per step of work. GRAVITY_PULL is what a chunk gains
+# by moving one step earlier; GRAVITY_GAP_PENALTY is what a task pays for one step of dead
+# time inside itself. Only their ratio matters: the absolute scale only eats into the
+# int64 headroom of the objective (docs/limits.md), so it is kept as small as the ratio allows.
+GRAVITY_PULL = 100
+GRAVITY_GAP_PENALTY = 1
+
 
 def calculate_horizon(
     user_tasks, time_blocks, min_horizon_days=14, step_minutes=1, max_horizon_days=DEFAULT_MAX_HORIZON_DAYS
@@ -246,26 +253,75 @@ class StagedModel:
     """
     A built CP-SAT model together with what Stage 2 needs to take over from Stage 1.
 
-    Stage 1's objective is already set on `model`; Stage 2's is applied later, once the
-    presence variables have been pinned to the Stage 1 answer.
-
-    The Stage 2 *variables* are built during model construction rather than deferred with
-    the objective. They cannot change what Stage 1 decides -- each is a definition over
-    `start_var`/`end_var`/`presence_var` whose domain never binds -- and a seed sweep
-    confirms Stage 1 reaches the same optimum with or without them. Leaving them here is a
-    provisional choice, not a proven one: dropping them from Stage 1 proves optimality
-    somewhat faster and shows no systematic difference in the incumbent reached within a
-    fixed budget, but makes the outcome noticeably more sensitive to the solver's seed.
-    See docs/refactoring.md for the measurements.
+    Stage 1's objective is already set on `model`. Stage 2's cannot be built yet: every
+    present chunk is pulled towards the present in proportion to the work in it, and those
+    weights are the chunk sizes Stage 1 settles on. So the objective is built by
+    `apply_gravity_objective()`, from the Stage 1 solution, and needs no variables of its
+    own — once presence is pinned, `horizon - start_var` is already a linear expression.
     """
 
     model: cp_model.CpModel
     horizon: int
-    gravity_terms: list = field(default_factory=list)
+    tasks: list = field(default_factory=list)
 
-    def apply_gravity_objective(self):
-        """Switches the model from the Packer objective to the Gravity one."""
-        self.model.maximize(sum(self.gravity_terms))
+    def apply_gravity_objective(self, solver):
+        """
+        Pins every presence variable to the Stage 1 answer and switches to the Gravity objective.
+
+        The two are one step, not two: the Gravity terms are plain `horizon - start_var`
+        expressions, which are only meaningful while presence is pinned. With a chunk free to
+        drop out, its start would be free too and its pull would be collected for nothing.
+
+        Weighing each chunk's pull by its Stage 1 size is what keeps the pull per-chunk without
+        a product of two variables. `size_var` stays free in Stage 2, so a weight can go stale,
+        but a stale weight only skews a preference, never a constraint. Chunk sizes sum to
+        `duration_steps` by construction, so a task's total pull does not depend on how many
+        pieces the calendar forced it into.
+
+        Pulling `task.start_var` alone (which aliases the first chunk) left every later chunk
+        with no pull at all, and the gap penalty is far too weak to stand in for one: a
+        priority 2 task could profitably wedge itself between the chunks of a priority 5 one.
+
+        Args:
+            solver: a CpSolver holding the Stage 1 solution.
+
+        Returns:
+            bool: whether there is anything for Stage 2 to optimise. False when every
+            scheduled task has priority 0, which disables gravity (floating filler tasks).
+        """
+        terms = []
+
+        for task in self.tasks:
+            is_present = solver.value(task.presence_var)
+            self.model.add(task.presence_var == is_present)
+            present_chunks = []
+            for chunk in task.chunks:
+                chunk_present = solver.value(chunk["presence_var"])
+                self.model.add(chunk["presence_var"] == chunk_present)
+                if chunk_present:
+                    present_chunks.append(chunk)
+
+            gravity_multiplier = task.priority**3
+            if not is_present or not gravity_multiplier:
+                continue
+
+            if present_chunks:
+                pulls = [(chunk["start_var"], solver.value(chunk["size_var"])) for chunk in present_chunks]
+            else:
+                pulls = [(task.start_var, task.duration_steps)]
+
+            # 1. Pull every piece of the task to the left, weighted by its mass (Bonus)
+            for start_var, mass in pulls:
+                terms.append((self.horizon - start_var) * (gravity_multiplier * GRAVITY_PULL * mass))
+
+            # 2. Force chunks to stick together (Penalty for GAPS), scaled by the task's
+            # whole mass so the ratio to the pull above does not drift with task length.
+            task_gaps = task.end_var - task.start_var - task.duration_steps
+            terms.append(task_gaps * (-gravity_multiplier * GRAVITY_GAP_PENALTY * task.duration_steps))
+
+        if terms:
+            self.model.maximize(sum(terms))
+        return bool(terms)
 
 
 def create_model(
@@ -444,7 +500,6 @@ def create_model(
             model.add(task_b.start_var >= task_a.end_var).only_enforce_if(task_b.presence_var)
 
     presence_terms = []  # Stage 1 (Packer): which tasks are worth scheduling
-    gravity_terms = []  # Stage 2 (Gravity): where the scheduled ones sit
 
     for i, task in enumerate(user_tasks):
         fixed_weight = calculate_task_weight(task, priority_threshold, step_minutes)
@@ -465,20 +520,19 @@ def create_model(
             for c, chunk in enumerate(task.chunks):
                 presence_terms.append(chunk["presence_var"] * -1)
 
-        gravity_multiplier = task.priority**3
-
-        # 1. Pull the entire task to the left (Bonus)
+        # Neither objective reads these two. They are what Stage 2 used to be built from, and
+        # they stay only because Stage 1 was measured with them in place: dropping them proves
+        # optimality faster but makes the Packer's answer more sensitive to the solver's seed.
+        # Whether to keep them is an open Stage 1 question (docs/refactoring.md); Stage 2 no
+        # longer depends on the answer.
         task_gravity = model.new_int_var(0, horizon, f"task_gravity_{i}")
         model.add(task_gravity == horizon - task.start_var).only_enforce_if(task.presence_var)
         model.add(task_gravity == 0).only_enforce_if(task.presence_var.negated())
-        gravity_terms.append(task_gravity * (gravity_multiplier * 1000))
 
-        # 2. Force chunks to stick together (Penalty for GAPS)
         task_gaps = model.new_int_var(0, horizon, f"task_gaps_{i}")
         model.add(task_gaps == (task.end_var - task.start_var) - task.duration_steps).only_enforce_if(task.presence_var)
         model.add(task_gaps == 0).only_enforce_if(task.presence_var.negated())
-        gravity_terms.append(task_gaps * (-gravity_multiplier * 10))
 
     model.maximize(sum(presence_terms))
 
-    return StagedModel(model=model, horizon=horizon, gravity_terms=gravity_terms)
+    return StagedModel(model=model, horizon=horizon, tasks=list(user_tasks))
